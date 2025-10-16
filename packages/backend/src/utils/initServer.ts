@@ -42,8 +42,8 @@ export async function Init() {
         await prisma.scheduleTask.createMany({
             data: [
                 {
-                    id: "purge_old_files",
-                    displayName: "Purge Old Files",
+                    id: "purge_old_objects",
+                    displayName: "Purge Old Objects",
                     cron: "0 0 * * *", // Every day at midnight
                     enabled: true
                 },
