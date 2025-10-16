@@ -30,8 +30,8 @@ export const apiService = {
     return response.data;
   },
 
-  me: async () => {
-    const token = getAuthToken();
+  me: async (authToken?: string) => {
+    const token = authToken || getAuthToken();
     const response = await api.get<Auth.Session>('/auth/me', {
       headers: { Authorization: token }
     });
