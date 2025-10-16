@@ -249,7 +249,7 @@ export default function WebDAVPage() {
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {showPassword[cred.id] ? cred.password : '••••••••••'}
+                        {showPassword[cred.id] ? cred.password : '•'.repeat(16)}
                       </Typography>
                       <Tooltip title={showPassword[cred.id] ? 'Hide' : 'Show'}>
                         <IconButton 
