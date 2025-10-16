@@ -12,10 +12,12 @@ import ImageViewerPage from "./pages/app/ImageViewerPage";
 import TextEditorPage from "./pages/app/TextEditorPage";
 import VideoViewerPage from "./pages/app/VideoViewerPage";
 import UsersPage from "./pages/app/UsersPage";
+import WebDAVPage from "./pages/app/credentials/WebDAVPage";
 import AccountPage from "./pages/app/settings/AccountPage";
 import SecurityPage from "./pages/app/settings/SecurityPage";
 import StoragePage from "./pages/app/settings/StoragePage";
 import AdminPage from "./pages/app/settings/AdminPage";
+import ScheduleTasksPage from "./pages/app/settings/ScheduleTasksPage";
 
 function App() {
   const { user, setUser } = useAuthStore();
@@ -68,10 +70,15 @@ function App() {
         <Route path="buckets" element={<BucketsPage />} />
         <Route path="buckets/:bucketId" element={<FileBrowserPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="credentials">
+          <Route path="webdav" element={<WebDAVPage />} />
+          <Route index element={<Navigate to="/app/credentials/webdav" replace />} />
+        </Route>
         <Route path="settings">
           <Route path="account" element={<AccountPage />} />
           <Route path="security" element={<SecurityPage />} />
           <Route path="storage" element={<StoragePage />} />
+          <Route path="schedule-tasks" element={<ScheduleTasksPage />} />
           <Route path="admin" element={<AdminPage />} />
           <Route index element={<Navigate to="/app/settings/account" replace />} />
         </Route>

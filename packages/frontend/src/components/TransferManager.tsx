@@ -158,7 +158,7 @@ export default function TransferManager() {
             </Box>
           ) : (
             <List sx={{ p: 0 }}>
-              {transfers.map((transfer) => {
+              {[...transfers].reverse().map((transfer) => {
                 const isExpanded = expandedItems.has(transfer.id);
                 const speed = calculateSpeed(transfer);
                 const timeRemaining = calculateTimeRemaining(transfer);

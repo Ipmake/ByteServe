@@ -31,6 +31,9 @@ import {
   Lock as LockIcon,
   Storage as StorageIcon,
   AdminPanelSettings as AdminIcon,
+  VpnKey as KeyIcon,
+  CloudSync as WebDAVIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../states/authStore';
@@ -52,13 +55,21 @@ const navItems: NavItem[] = [
   { text: 'Buckets', icon: <FolderIcon />, path: '/app/buckets' },
   { text: 'Users', icon: <PeopleIcon />, path: '/app/users', adminOnly: true },
   {
+    text: 'Credentials',
+    icon: <KeyIcon />,
+    children: [
+      { text: 'WebDAV', icon: <WebDAVIcon />, path: '/app/credentials/webdav' },
+    ],
+  },
+  {
     text: 'Settings',
     icon: <SettingsIcon />,
     children: [
-      { text: 'Account', icon: <AccountIcon />, path: '/app/settings/account' },
-      { text: 'Security', icon: <LockIcon />, path: '/app/settings/security' },
-      { text: 'Storage', icon: <StorageIcon />, path: '/app/settings/storage' },
-      { text: 'Admin', icon: <AdminIcon />, path: '/app/settings/admin', adminOnly: true },
+  { text: 'Account', icon: <AccountIcon />, path: '/app/settings/account' },
+  { text: 'Security', icon: <LockIcon />, path: '/app/settings/security' },
+  { text: 'Storage', icon: <StorageIcon />, path: '/app/settings/storage' },
+  { text: 'Schedule Tasks', icon: <ScheduleIcon />, path: '/app/settings/schedule-tasks', adminOnly: true },
+  { text: 'Admin', icon: <AdminIcon />, path: '/app/settings/admin', adminOnly: true },
     ],
   },
 ];
@@ -73,6 +84,10 @@ export default function AppLayout() {
   // Auto-expand settings if on a settings page
   const isSettingsPage = location.pathname.startsWith('/app/settings');
   const [settingsOpen, setSettingsOpen] = useState(isSettingsPage);
+  
+  // Auto-expand credentials if on a credentials page
+  const isCredentialsPage = location.pathname.startsWith('/app/credentials');
+  const [credentialsOpen, setCredentialsOpen] = useState(isCredentialsPage);
 
   // Filter nav items based on admin status
   const filteredNavItems = navItems.map((item) => {
@@ -113,14 +128,21 @@ export default function AppLayout() {
       <List sx={{ flexGrow: 1, pt: 2 }}>
         {filteredNavItems.map((item) => {
           if (item.children) {
-            // Expandable menu item (Settings)
-            const isSettingsActive = location.pathname.startsWith('/app/settings');
+            // Expandable menu item (Settings, Credentials, etc.)
+            const isActive = item.children.some(child => location.pathname.startsWith(child.path?.split('/').slice(0, 3).join('/') || ''));
+            const isOpen = item.text === 'Settings' ? settingsOpen : item.text === 'Credentials' ? credentialsOpen : false;
+            const setOpen = item.text === 'Settings' 
+              ? () => setSettingsOpen(!settingsOpen)
+              : item.text === 'Credentials' 
+              ? () => setCredentialsOpen(!credentialsOpen)
+              : () => {};
+            
             return (
               <Box key={item.text}>
                 <ListItem disablePadding sx={{ mb: 0.5 }}>
                   <ListItemButton
-                    onClick={() => setSettingsOpen(!settingsOpen)}
-                    selected={isSettingsActive}
+                    onClick={setOpen}
+                    selected={isActive}
                     sx={{
                       mx: 1,
                       borderRadius: 1,
@@ -139,16 +161,16 @@ export default function AppLayout() {
                     <ListItemIcon
                       sx={{
                         minWidth: 40,
-                        color: isSettingsActive ? 'inherit' : 'text.secondary',
+                        color: isActive ? 'inherit' : 'text.secondary',
                       }}
                     >
                       {item.icon}
                     </ListItemIcon>
                     <ListItemText primary={item.text} />
-                    {settingsOpen ? <ExpandLess /> : <ExpandMore />}
+                    {isOpen ? <ExpandLess /> : <ExpandMore />}
                   </ListItemButton>
                 </ListItem>
-                <Collapse in={settingsOpen} timeout="auto" unmountOnExit>
+                <Collapse in={isOpen} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding>
                     {item.children.map((child) => (
                       <ListItem key={child.text} disablePadding sx={{ mb: 0.5 }}>

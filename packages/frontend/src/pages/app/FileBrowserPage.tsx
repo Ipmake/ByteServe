@@ -65,7 +65,7 @@ export default function FileBrowserPage() {
   const [folderName, setFolderName] = useState("");
 
   const [uploadFileOpen, setUploadFileOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [objectToDelete, setObjectToDelete] =
@@ -153,92 +153,101 @@ export default function FileBrowserPage() {
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      setSelectedFiles(Array.from(files));
       setUploadFileOpen(true);
     }
   };
 
   const handleUploadFile = async () => {
-    if (!selectedFile || !bucketId) return;
-
-    const transferId = addTransfer({
-      type: "upload",
-      filename: selectedFile.name,
-      size: selectedFile.size,
-      progress: 0,
-      status: "active",
-    });
+    if (!selectedFiles.length || !bucketId) return;
 
     setUploadFileOpen(false);
-    const fileToUpload = selectedFile;
-    setSelectedFile(null);
+    const filesToUpload = selectedFiles;
+    setSelectedFiles([]);
 
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
+    // Flip the order so the first file is at the bottom, last file is at the top
+    const reversedFiles = [...filesToUpload].reverse();
+    let allSucceeded = true;
+    for (const file of reversedFiles) {
+      const transferId = addTransfer({
+        type: "upload",
+        filename: file.name,
+        size: file.size,
+        progress: 0,
+        status: "active",
+      });
+
+      try {
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          updateTransfer(transferId, {
+            status: "error",
+            error: "Not authenticated",
+          });
+          setError("Not authenticated");
+          allSucceeded = false;
+          continue;
+        }
+
+        // Create XMLHttpRequest to track progress
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("bucketId", bucketId);
+        if (currentFolderId) {
+          formData.append("parentId", currentFolderId);
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+
+          xhr.upload.addEventListener("progress", (e) => {
+            if (e.lengthComputable) {
+              const progress = (e.loaded / e.total) * 100;
+              updateTransfer(transferId, { progress });
+            }
+          });
+
+          xhr.addEventListener("load", () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              updateTransfer(transferId, { progress: 100, status: "completed" });
+              resolve();
+            } else {
+              let errorMessage = "Upload failed";
+              try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.error) {
+                  errorMessage = response.error;
+                }
+              } catch (e) {
+                // If response is not JSON, use status text or default message
+                errorMessage = xhr.statusText || "Upload failed";
+              }
+              reject(new Error(errorMessage));
+            }
+          });
+
+          xhr.addEventListener("error", () => {
+            reject(new Error("Network error"));
+          });
+
+          xhr.open("POST", "http://localhost:3001/api/objects/upload");
+          xhr.setRequestHeader("Authorization", token);
+          xhr.send(formData);
+        });
+      } catch (err: any) {
         updateTransfer(transferId, {
           status: "error",
-          error: "Not authenticated",
+          error: err.message || "Failed to upload file",
         });
-        setError("Not authenticated");
-        return;
+        setError(err.message || "Failed to upload file");
+        allSucceeded = false;
       }
-
-      // Create XMLHttpRequest to track progress
-      const formData = new FormData();
-      formData.append("file", fileToUpload);
-      formData.append("bucketId", bucketId);
-      if (currentFolderId) {
-        formData.append("parentId", currentFolderId);
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            const progress = (e.loaded / e.total) * 100;
-            updateTransfer(transferId, { progress });
-          }
-        });
-
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            updateTransfer(transferId, { progress: 100, status: "completed" });
-            resolve();
-          } else {
-            let errorMessage = "Upload failed";
-            try {
-              const response = JSON.parse(xhr.responseText);
-              if (response.error) {
-                errorMessage = response.error;
-              }
-            } catch (e) {
-              // If response is not JSON, use status text or default message
-              errorMessage = xhr.statusText || "Upload failed";
-            }
-            reject(new Error(errorMessage));
-          }
-        });
-
-        xhr.addEventListener("error", () => {
-          reject(new Error("Network error"));
-        });
-
-        xhr.open("POST", "http://localhost:3001/api/objects/upload");
-        xhr.setRequestHeader("Authorization", token);
-        xhr.send(formData);
-      });
-
+    }
+    // Only refresh file list after all uploads are finished
+    if (allSucceeded) {
       fetchObjects();
-    } catch (err: any) {
-      updateTransfer(transferId, {
-        status: "error",
-        error: err.message || "Failed to upload file",
-      });
-      setError(err.message || "Failed to upload file");
     }
   };
 
@@ -546,8 +555,8 @@ export default function FileBrowserPage() {
             component="label"
             startIcon={<UploadIcon />}
           >
-            Upload File
-            <input type="file" hidden onChange={handleFileSelect} />
+            Upload File(s)
+            <input type="file" hidden multiple onChange={handleFileSelect} />
           </Button>
         </Box>
       </Box>
@@ -858,28 +867,53 @@ export default function FileBrowserPage() {
       <Dialog
         open={uploadFileOpen}
         onClose={() => setUploadFileOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Upload File</DialogTitle>
+        <DialogTitle>Upload File(s)</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mt: 2 }}>
-            Selected file: <strong>{selectedFile?.name}</strong>
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Size: {selectedFile ? formatFileSize(selectedFile.size) : "0 B"}
-          </Typography>
+          {selectedFiles.length === 0 ? (
+            <Typography variant="body2" sx={{ mt: 2 }}>
+              No files selected.
+            </Typography>
+          ) : (
+            <>
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                Selected files:
+              </Typography>
+              <ul style={{ paddingLeft: 18, margin: 0 }}>
+                {selectedFiles.map((file) => (
+                  <li key={file.name} style={{
+                    maxWidth: 600,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'block',
+                  }}>
+                    <strong style={{
+                      maxWidth: 400,
+                      display: 'inline-block',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      verticalAlign: 'bottom',
+                      whiteSpace: 'nowrap',
+                    }}>{file.name}</strong> ({formatFileSize(file.size)})
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button
             onClick={() => {
               setUploadFileOpen(false);
-              setSelectedFile(null);
+              setSelectedFiles([]);
             }}
           >
             Cancel
           </Button>
-          <Button onClick={handleUploadFile} variant="contained">
+          <Button onClick={handleUploadFile} variant="contained" disabled={selectedFiles.length === 0}>
             Upload
           </Button>
         </DialogActions>

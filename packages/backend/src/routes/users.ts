@@ -6,7 +6,7 @@ import Joi from 'joi';
 const router = express.Router();
 
 // Middleware to check if user is admin
-async function requireAdmin(req: Request, res: Response, next: express.NextFunction) {
+export async function requireAdmin(req: Request, res: Response, next: express.NextFunction) {
     const token = req.headers.authorization;
     const user = await AuthUser(token);
     

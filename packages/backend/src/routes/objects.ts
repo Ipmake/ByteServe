@@ -151,9 +151,8 @@ router.post('/file', AuthLoader, async (req: Request, res: Response) => {
       },
     });
 
-    // Create empty physical file
-    const filePath = await getObjectPath(bucket.name, file.id);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    // Create empty physical file directly in bucket root
+    const filePath = path.join(process.cwd(), 'storage', bucket.name, file.id);
     await fs.writeFile(filePath, '', 'utf-8');
 
     res.status(201).json({
@@ -222,9 +221,7 @@ router.post('/folder', AuthLoader, async (req: Request, res: Response) => {
       },
     });
 
-    // Create physical folder
-    const folderPath = await getObjectPath(bucket.name, folder.id);
-    await fs.mkdir(folderPath, { recursive: true });
+      // No physical folder creation. Folders are database-only.
 
     res.status(201).json({
       id: folder.id,
@@ -374,9 +371,19 @@ router.put('/:id', AuthLoader, async (req: Request, res: Response) => {
     }
 
     // Update object in database
+    const isFolder = object.mimeType === 'folder';
+    let newMimeType = object.mimeType;
+    if (!isFolder) {
+      // Use mime-types to detect new type from filename
+      const mime = require('mime-types');
+      newMimeType = mime.lookup(filename.trim()) || 'application/octet-stream';
+    }
     const updatedObject = await prisma.object.update({
       where: { id },
-      data: { filename: filename.trim() },
+      data: {
+        filename: filename.trim(),
+        ...(isFolder ? {} : { mimeType: newMimeType })
+      },
     });
 
     res.json({

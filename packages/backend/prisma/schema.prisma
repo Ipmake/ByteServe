@@ -28,8 +28,9 @@ model User {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    AuthTokens AuthTokens[]
-    Bucket     Bucket[]
+    AuthTokens       AuthTokens[]
+    Bucket           Bucket[]
+    WebDAVCredential WebDAVCredential[]
 }
 
 model AuthTokens {
@@ -56,6 +57,7 @@ model Bucket {
 
     owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
     entries Object[]
+    webdavAccess WebDAVBucketAccess[]
 }
 
 model Object {
@@ -74,4 +76,35 @@ model Object {
     bucket Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
 
     @@unique([bucketId, parentId, filename])
+}
+
+model ScheduleTask {
+    id           String   @id @unique @db.VarChar(32)
+    displayName  String
+    enabled      Boolean  @default(true)
+    cron         String
+    lastRun      DateTime?
+}
+
+model WebDAVCredential {
+    id        String   @id @default(uuid())
+    userId    String
+    username  String   @unique @db.VarChar(64) // Format: username-dav-XXXX
+    password  String   @db.VarChar(64) // Plain text, auto-generated
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    bucketAccess  WebDAVBucketAccess[]
+}
+
+model WebDAVBucketAccess {
+    id           String @id @default(uuid())
+    credentialId String
+    bucketId     String
+
+    credential WebDAVCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+    bucket     Bucket           @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+    @@unique([credentialId, bucketId])
 }

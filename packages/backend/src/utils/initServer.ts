@@ -35,6 +35,23 @@ export async function Init() {
         process.stdout.write("OK \n")
     }
 
+    process.stdout.write("Schedule Tasks Present: ")
+    if ((await prisma.scheduleTask.count()) === 0) {
+        await prisma.scheduleTask.createMany({
+            data: [
+                {
+                    id: "purge_old_files",
+                    displayName: "Purge Old Files",
+                    cron: "0 0 * * *", // Every day at midnight
+                    enabled: true
+                }
+            ]
+        })
+        process.stdout.write("Created \n")
+    } else {
+        process.stdout.write("OK \n")
+    }
+
     process.stdout.write("\n")
     console.log("Database checks complete.")
 }

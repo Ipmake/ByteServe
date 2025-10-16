@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
+import mime from 'mime-types';
 
 const router = Router();
 
@@ -256,20 +257,25 @@ router.post('/:bucketName/*', upload.single('file'), async (req: Request, res: R
     }
 
     // Create object in database
+    // Detect mime type from filename
+    let detectedMime = mime.lookup(file.originalname);
+    if (!detectedMime || typeof detectedMime !== 'string') {
+      detectedMime = 'application/octet-stream';
+    }
     const object = await prisma.object.create({
       data: {
         bucketId: bucket.id,
         filename: file.originalname,
         size: file.size,
-        mimeType: file.mimetype,
+        mimeType: detectedMime,
         parentId,
       },
     });
 
     // Move file to proper location
-    const targetPath = await getObjectPath(bucket.name, object.id);
-    await fs.mkdir(path.dirname(targetPath), { recursive: true });
-    await fs.rename(file.path, targetPath);
+  // Store file directly in bucket root
+  const targetPath = path.join(process.cwd(), 'storage', bucket.name, object.id);
+  await fs.rename(file.path, targetPath);
 
     res.status(201).json({
       message: 'File uploaded successfully',
