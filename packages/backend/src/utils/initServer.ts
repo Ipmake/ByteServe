@@ -36,13 +36,21 @@ export async function Init() {
     }
 
     process.stdout.write("Schedule Tasks Present: ")
-    if ((await prisma.scheduleTask.count()) === 0) {
+    if ((await prisma.scheduleTask.count()) !== 2) {
+        await prisma.scheduleTask.deleteMany({})
+
         await prisma.scheduleTask.createMany({
             data: [
                 {
                     id: "purge_old_files",
                     displayName: "Purge Old Files",
                     cron: "0 0 * * *", // Every day at midnight
+                    enabled: true
+                },
+                {
+                    id: "purge_expired_tokens",
+                    displayName: "Purge Expired Tokens",
+                    cron: "0 * * * *", // Every hour
                     enabled: true
                 }
             ]
