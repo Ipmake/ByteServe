@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    // Note: This URL is required by Prisma but will be ignored when using the adapter
+    url      = "postgresql://localhost:5432/filegrave"
+}
+
+model Config {
+    key   String @id @db.VarChar(64)
+    value String @db.VarChar(256)
+}
+
+model User {
+    id       String @id @default(uuid())
+    username String @unique @db.VarChar(32)
+    password String @db.VarChar(256)
+
+    enabled      Boolean @default(true)
+    isAdmin      Boolean @default(false)
+    storageQuota BigInt  @default(-1) // -1 means unlimited, otherwise in bytes
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    AuthTokens AuthTokens[]
+    Bucket     Bucket[]
+}
+
+model AuthTokens {
+    id        String   @id @default(uuid())
+    userId    String
+    token     String   @unique @db.VarChar(256)
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+
+    isApi Boolean @default(false) // Indicates if the token is for API access (disallows web login)
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Bucket {
+    id           String   @id @default(uuid())
+    name         String   @db.VarChar(64) @unique
+    access       String   @default("private") @db.VarChar(32) // private, public-read, public-write
+    storageQuota BigInt   @default(-1) // -1 means unlimited, otherwise in bytes
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+
+    ownerId String
+
+    owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    entries Object[]
+}
+
+model Object {
+    id        String   @id @default(uuid())
+    bucketId  String
+    filename  String   @db.VarChar(512)
+    size      BigInt
+    mimeType  String   @db.VarChar(128) // e.g., image/png, application/pdf or folder for folders
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    parentId String?
+    children Object[] @relation("ObjectToChildren")
+    parent   Object?  @relation("ObjectToChildren", fields: [parentId], references: [id], onDelete: Cascade)
+
+    bucket Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+    @@unique([bucketId, parentId, filename])
+}
