@@ -113,7 +113,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
         return;
     }
 
-    const { currentPasswordHash1, newPasswordHash1 } = value;
+    const { currentPassword: currentPasswordHash1, newPassword: newPasswordHash1 } = value;
 
     const currentPassword = HashPW(currentPasswordHash1);
     const newPassword = HashPW(newPasswordHash1);

@@ -406,7 +406,13 @@ export default function BucketsPage() {
             fullWidth
             variant="outlined"
             value={bucketName}
-            onChange={(e) => setBucketName(e.target.value.toLowerCase())}
+            onChange={(e) =>  {
+              let value = e.target.value.toLowerCase();
+
+              value = value.replaceAll(" ", "-").slice(0, 64); // Limit length to 64 characters
+
+              setBucketName(value);
+            }}
             error={nameAvailable === false}
             helperText={
               nameCheckLoading

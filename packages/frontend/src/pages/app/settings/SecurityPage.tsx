@@ -54,7 +54,8 @@ export default function SecurityPage() {
         currentPasswordHash,
         newPasswordHash
       ).catch((err) => {
-        throw new Error(err.message || 'Failed to change password');
+        console.log(err)
+        throw new Error(err.response?.data?.error || err.message || 'Failed to change password');
       });
 
       setSuccess(response.message || 'Password changed successfully');

@@ -258,6 +258,15 @@ export const apiService = {
         return response.data;
     },
 
+    runScheduleTask: async (id: string) => {
+        const token = getAuthToken();
+        const res = await api.post(`/schedule-tasks/${id}/run`, {  }, {
+            headers: { Authorization: token },
+            timeout: 60000, // 60 seconds timeout for long-running tasks
+        });
+        return res.data;
+    },
+
     // WebDAV Credentials
     getWebDAVCredentials: async () => {
         const token = getAuthToken();

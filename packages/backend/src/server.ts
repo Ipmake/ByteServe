@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import { app } from './';
 import express from 'express';
 import { Init } from './utils/initServer';
+import ScheduledTasksService from './services/scheduledTasks';
 
 export async function startServer(port: number | string) {
     await Init();
@@ -32,6 +33,8 @@ export async function startServer(port: number | string) {
         // Register API routes
         const { registerRoutes } = await import('./utils/routeloader.js');
         await registerRoutes(app, routesDir, '/api');
+
+        const scheduledTasksService = new ScheduledTasksService();
         
         // Check if www directory exists
         try {

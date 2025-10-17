@@ -422,12 +422,9 @@ router.delete('/:id', AuthLoader, async (req: Request, res: Response) => {
     // Delete physical file/folder
     const objectPath = await getObjectPath(object.bucket.name, object.id);
     try {
-      const stats = await fs.stat(objectPath);
-      if (stats.isDirectory()) {
-        await fs.rm(objectPath, { recursive: true, force: true });
-      } else {
-        await fs.unlink(objectPath);
-      }
+      if (object.mimeType === 'folder') {
+        // Deleting folders and their contents could induce cpu spike, so we skip physical deletion (handled by purge task)
+      } else await fs.unlink(objectPath);
     } catch (err) {
       console.warn('Failed to delete physical file:', err);
     }

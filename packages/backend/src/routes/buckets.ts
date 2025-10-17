@@ -106,11 +106,11 @@ router.get('/check/:name', AuthLoader, async (req, res: Response) => {
     });
 
     if (existing) {
-      return res.json({ 
-        available: false, 
-        reason: existing.ownerId === user.id 
-          ? 'You already have a bucket with this name' 
-          : 'This bucket name is already taken' 
+      return res.json({
+        available: false,
+        reason: existing.ownerId === user.id
+          ? 'You already have a bucket with this name'
+          : 'This bucket name is already taken'
       });
     }
 
@@ -338,6 +338,9 @@ router.delete('/:id', AuthLoader, async (req, res: Response) => {
     await prisma.bucket.delete({
       where: { id },
     });
+
+    const storagePath = path.join(process.cwd(), 'storage', bucket.name);
+    await fs.rm(storagePath, { recursive: true, force: true });
 
     res.json({ message: 'Bucket deleted successfully' });
   } catch (error) {

@@ -15,8 +15,15 @@ import {
   Modal,
   Button,
   TextField,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { apiService } from "../../../api";
 
 interface ScheduleTask {
@@ -41,6 +48,8 @@ export default function ScheduleTasksPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [cronError, setCronError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [runLoading, setRunLoading] = useState<{ [id: string]: boolean }>({});
+  const [confirmRunId, setConfirmRunId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTasks();
@@ -100,6 +109,19 @@ export default function ScheduleTasksPage() {
     setModalOpen(false);
   };
 
+  const handleRun = async (id: string) => {
+    setRunLoading((prev) => ({ ...prev, [id]: true }));
+    try {
+      await apiService.runScheduleTask(id);
+      fetchTasks();
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to run task");
+    } finally {
+      setRunLoading((prev) => ({ ...prev, [id]: false }));
+      setConfirmRunId(null);
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
@@ -119,7 +141,7 @@ export default function ScheduleTasksPage() {
               <TableCell>Enabled</TableCell>
               <TableCell>Cron String</TableCell>
               <TableCell>Last Run</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell align="right"></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -141,7 +163,28 @@ export default function ScheduleTasksPage() {
                 <TableCell>
                   {task.lastRun ? new Date(task.lastRun).toLocaleString() : "-"}
                 </TableCell>
-                <TableCell align="right">
+                <TableCell
+                  align="right"
+                  style={{
+                    gap: 8,
+                  }}
+                >
+                  <Tooltip title="Run now">
+                    <span>
+                      <IconButton
+                        color="primary"
+                        size="small"
+                        disabled={!!runLoading?.[task.id]}
+                        onClick={() => setConfirmRunId(task.id)}
+                      >
+                        {runLoading?.[task.id] ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          <PlayArrowIcon />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                   <Tooltip title="Edit">
                     <IconButton
                       onClick={() => handleEdit(task)}
@@ -280,6 +323,30 @@ export default function ScheduleTasksPage() {
           </Box>
         </Box>
       </Modal>
+
+      {/* Confirmation dialog for running a task */}
+      <Dialog open={!!confirmRunId} onClose={() => setConfirmRunId(null)}>
+        <DialogTitle>Run Scheduled Task</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to run this scheduled task now? This may take
+            a while to complete.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmRunId(null)} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => confirmRunId && handleRun(confirmRunId)}
+            color="primary"
+            variant="contained"
+            disabled={!!runLoading?.[confirmRunId!]}
+          >
+            Run
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

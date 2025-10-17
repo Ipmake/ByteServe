@@ -7,13 +7,16 @@ import { PrismaPGlite } from 'pglite-prisma-adapter';
 import { startServer } from './server';
 import { setupWebDAVServer } from './webdav/index';
 import bodyParser from 'body-parser';
+import { live } from '@electric-sql/pglite/live';
 
 dotenv.config();
 
-// Initialize PGlite client with the database directory
-const pgliteClient = new PGlite('./data');
+const pgliteClient = new PGlite('./data', {
+  extensions: {
+    live
+  }
+});
 
-// Initialize the PGlite adapter for Prisma
 const adapter = new PrismaPGlite(pgliteClient);
 
 // Create Prisma client with the adapter
@@ -30,13 +33,12 @@ setupWebDAVServer(app);
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
-export { app, prisma };
+export { app, prisma, pgliteClient };
 
 startServer(PORT).catch((err) => {
   console.error('Error starting server:', err);
