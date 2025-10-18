@@ -92,12 +92,30 @@ declare global {
             message: string;
         }
     }
+    namespace Credentials {
+        namespace S3 {
+            interface Credential {
+                id: string;
+                userId: string;
+                accessKey: string;
+                secretKey: string;
+                createdAt: string;
+                updatedAt: string;
+                bucketAccess: Array<{
+                    id: string;
+                    name: string;
+                }>;
+            }
+        }
+    }
     namespace API {
         interface Error {
             error: string;
         }
-        interface Health {
+        interface Health extends BasicResponse {
             status: string;
+        }
+        interface BasicResponse {
             message: string;
         }
     }

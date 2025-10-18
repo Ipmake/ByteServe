@@ -2,9 +2,8 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
 import { Transform } from 'stream';
-import { prisma } from '../..';
+import { prisma } from '../../../..';
 import { WebDAVUser } from '../types';
 import { parseWebDAVPath } from '../utils';
 import mime from 'mime-types';
@@ -109,14 +108,13 @@ export async function handlePut(req: express.Request, res: express.Response) {
         });
 
         // Generate unique ID for storage
-        const objectId = existingObject?.id || crypto.randomBytes(16).toString('hex');
+        const objectId = existingObject?.id || crypto.randomUUID();
 
-        // Build storage path: /storage/{bucketName}/{folder1Id}/{folder2Id}/{fileId}
+        // Build storage path: /storage/{bucketName}/{folderId}
         const pathComponents = [
             process.cwd(),
             'storage',
             bucket,
-            ...folderPath,
             objectId
         ];
         storagePath = path.join(...pathComponents);

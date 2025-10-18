@@ -1,17 +1,18 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { prisma } from '../..';
+import crypto from 'crypto';
+import { prisma } from '../../../..';
 import { WebDAVUser } from '../types';
 import { parseWebDAVPath } from '../utils';
 
-export async function handleMove(req: express.Request, res: express.Response) {
+export async function handleCopy(req: express.Request, res: express.Response) {
     try {
         const user: WebDAVUser = (req as any).webdavUser;
         const { bucket, objectPath } = parseWebDAVPath(req.path);
         
         if (!bucket || objectPath === '/') {
-            return res.status(403).send('Cannot move root or bucket');
+            return res.status(403).send('Cannot copy root or bucket');
         }
         
         // Get destination from Destination header
@@ -30,7 +31,7 @@ export async function handleMove(req: express.Request, res: express.Response) {
         const { bucket: destBucket, objectPath: destObjectPath } = parseWebDAVPath(destination);
         
         if (destBucket !== bucket) {
-            return res.status(403).send('Cannot move across buckets');
+            return res.status(403).send('Cannot copy across buckets');
         }
         
         if (!destObjectPath || destObjectPath === '/') {
@@ -105,82 +106,6 @@ export async function handleMove(req: express.Request, res: express.Response) {
             return res.status(412).send('Destination exists and overwrite is false');
         }
         
-        // Build old and new storage paths
-        const cwd = process.cwd();
-        
-        // Build source path
-        let sourceFolderPath: string[] = [];
-        let tempParentId = sourceObject.parentId;
-        while (tempParentId) {
-            const parentObj = await prisma.object.findUnique({
-                where: { id: tempParentId },
-            });
-            if (parentObj) {
-                sourceFolderPath.unshift(parentObj.id);
-                tempParentId = parentObj.parentId;
-            } else {
-                break;
-            }
-        }
-        
-        const oldStoragePath = path.join(cwd, 'storage', bucket, ...sourceFolderPath, sourceObject.id);
-        
-        // Build destination path
-        let destFolderPath: string[] = [];
-        tempParentId = destParentId;
-        while (tempParentId) {
-            const parentObj = await prisma.object.findUnique({
-                where: { id: tempParentId },
-            });
-            if (parentObj) {
-                destFolderPath.unshift(parentObj.id);
-                tempParentId = parentObj.parentId;
-            } else {
-                break;
-            }
-        }
-        
-        const newStoragePath = path.join(cwd, 'storage', bucket, ...destFolderPath, sourceObject.id);
-        
-        // Delete existing destination if overwrite is true
-        if (existingDest) {
-            const existingPath = path.join(cwd, 'storage', bucket, ...destFolderPath, existingDest.id);
-            if (fs.existsSync(existingPath)) {
-                if (existingDest.mimeType === 'folder') {
-                    fs.rmSync(existingPath, { recursive: true, force: true });
-                } else {
-                    fs.unlinkSync(existingPath);
-                }
-            }
-            await prisma.object.delete({
-                where: { id: existingDest.id },
-            });
-        }
-        
-        // Create destination parent directory if needed
-        const newStorageDir = path.dirname(newStoragePath);
-        if (!fs.existsSync(newStorageDir)) {
-            fs.mkdirSync(newStorageDir, { recursive: true });
-        }
-        
-        // Move the physical file/folder
-        if (fs.existsSync(oldStoragePath)) {
-            fs.renameSync(oldStoragePath, newStoragePath);
-        }
-        
-        // Update database
-        await prisma.object.update({
-            where: { id: sourceObject.id },
-            data: {
-                filename: newFilename,
-                parentId: destParentId,
-                // Update mimeType if not a folder
-                ...(sourceObject.mimeType !== 'folder' ? {
-                    mimeType: require('mime-types').lookup(newFilename) || 'application/octet-stream'
-                } : {})
-            },
-        });
-        
         // --- QUOTA ENFORCEMENT ---
         // Calculate total used for bucket
         const bucketUsed = await prisma.object.aggregate({
@@ -196,7 +121,7 @@ export async function handleMove(req: express.Request, res: express.Response) {
         });
         const userQuota = Number((await prisma.user.findUnique({ where: { id: user.userId } }))?.storageQuota);
         const userUsedSize = Number(userUsed._sum.size || 0);
-        // Quota checks (for move, use sourceObject.size)
+        // Quota checks (for copy, use sourceObject.size)
         if (bucketQuota > -1 && (bucketUsedSize + Number(sourceObject.size) > bucketQuota)) {
             res.setHeader('DAV', '1,2');
             res.setHeader('Content-Type', 'application/xml; charset="utf-8"');
@@ -211,10 +136,75 @@ export async function handleMove(req: express.Request, res: express.Response) {
         }
         // --- END QUOTA ENFORCEMENT ---
         
-        console.log('[WebDAV MOVE] Moved:', objectPath, '->', destObjectPath);
+        // Build source storage path
+        let sourceFolderPath: string[] = [];
+        let tempParentId = sourceObject.parentId;
+        while (tempParentId) {
+            const parentObj = await prisma.object.findUnique({
+                where: { id: tempParentId },
+            });
+            if (parentObj) {
+                sourceFolderPath.unshift(parentObj.id);
+                tempParentId = parentObj.parentId;
+            } else {
+                break;
+            }
+        }
+        
+        const sourceStoragePath = path.join(process.cwd(), 'storage', bucket, sourceObject.id);
+        
+        // Build destination storage path
+        let destFolderPath: string[] = [];
+        tempParentId = destParentId;
+        while (tempParentId) {
+            const parentObj = await prisma.object.findUnique({
+                where: { id: tempParentId },
+            });
+            if (parentObj) {
+                destFolderPath.unshift(parentObj.id);
+                tempParentId = parentObj.parentId;
+            } else {
+                break;
+            }
+        }
+        
+        // Copy database object
+        async function copyObject(srcObj: any, newParentId: string | null, newName: string) {
+            const newObj = await prisma.object.create({
+                data: {
+                    bucketId: srcObj.bucketId,
+                    parentId: newParentId,
+                    filename: newName,
+                    size: srcObj.size,
+                    mimeType: srcObj.mimeType,
+                },
+                include: {
+                    bucket: true,
+                }
+            });
+            
+            // If it's a folder, recursively copy children
+            if (srcObj.mimeType === 'folder') {
+                const children = await prisma.object.findMany({
+                    where: { parentId: srcObj.id },
+                });
+                
+                for (const child of children) {
+                    const childId = crypto.randomBytes(16).toString('hex');
+                    await copyObject(child, newObj.id, child.filename);
+                }
+            } else {
+                // Copy file in storage
+                await fs.copyFileSync(sourceStoragePath, path.join(process.cwd(), 'storage', newObj.bucket.name, newObj.id));
+            }
+        }
+
+        await copyObject(sourceObject, destParentId, newFilename);
+
+        console.log('[WebDAV COPY] Copied:', objectPath, '->', destObjectPath);
         res.status(existingDest ? 204 : 201).end();
     } catch (error) {
-        console.error('[WebDAV] MOVE error:', error);
+        console.error('[WebDAV] COPY error:', error);
         res.status(500).send('Internal Server Error');
     }
 }

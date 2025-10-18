@@ -5,6 +5,7 @@ import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import mime from 'mime-types';
+import { getObjectPath, resolvePath } from '../common/object-nesting';
 
 const router = Router();
 
@@ -21,39 +22,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-
-// Helper function to get object path
-async function getObjectPath(bucketName: string, objectId: string): Promise<string> {
-  return path.join(process.cwd(), 'storage', bucketName, objectId);
-}
-
-// Helper to navigate path segments
-async function resolvePath(bucketName: string, pathSegments: string[]): Promise<any | null> {
-  let currentParentId: string | null = null;
-  let result: any = null;
-
-  for (const segment of pathSegments) {
-    const foundObject: any = await prisma.object.findFirst({
-      where: {
-        bucket: { name: bucketName },
-        filename: segment,
-        parentId: currentParentId,
-      },
-      include: { bucket: true },
-    });
-
-    if (!foundObject) {
-      return null;
-    }
-
-    result = foundObject;
-    if (foundObject.mimeType === 'folder') {
-      currentParentId = foundObject.id;
-    }
-  }
-
-  return result;
-}
 
 // GET /api/storage/:bucketName/* - Public file access
 router.get('/:bucketName/*', async (req: Request, res: Response) => {
@@ -141,7 +109,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     }
 
     // It's a file - serve it
-    const physicalPath = await getObjectPath(bucketName, object.id);
+    const physicalPath = getObjectPath(bucketName, object.id);
     
     // Check if file exists
     try {

@@ -299,6 +299,39 @@ export const apiService = {
         });
         return response.data;
     },
+
+        // S3 Credentials
+    getS3Credentials: async () => {
+        const token = getAuthToken();
+        const response = await api.get('/s3-credentials', {
+            headers: { Authorization: token }
+        });
+        return response.data as Credentials.S3.Credential[];
+    },
+
+    createS3Credential: async (bucketIds: string[]) => {
+        const token = getAuthToken();
+        const response = await api.post('/s3-credentials', { bucketIds }, {
+            headers: { Authorization: token }
+        });
+        return response.data as Credentials.S3.Credential;
+    },
+
+    updateS3Credential: async (id: string, bucketIds: string[]) => {
+        const token = getAuthToken();
+        const response = await api.put(`/s3-credentials/${id}`, { bucketIds }, {
+            headers: { Authorization: token }
+        });
+        return response.data as Credentials.S3.Credential;
+    },
+
+    deleteS3Credential: async (id: string) => {
+        const token = getAuthToken();
+        const response = await api.delete(`/s3-credentials/${id}`, {
+            headers: { Authorization: token }
+        });
+        return response.data as API.BasicResponse;
+    },
 };
 
 export default api;

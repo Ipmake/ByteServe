@@ -6,18 +6,18 @@ import { generateRandomString } from '../common/string';
 
 const router = express.Router();
 
-// Get all WebDAV credentials for the current user
+// Get all S3 credentials for the current user
 router.get('/', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization;
         const user = await AuthUser(token);
-        
+
         if (!user) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
         }
 
-        const credentials = await prisma.webDAVCredential.findMany({
+        const credentials = await prisma.s3Credential.findMany({
             where: {
                 userId: user.user.id,
             },
@@ -38,10 +38,18 @@ router.get('/', async (req: Request, res: Response) => {
             },
         });
 
-        res.json(credentials);
+        res.json(credentials.map(cred => ({
+            ...cred,
+            createdAt: cred.createdAt.toISOString(),
+            updatedAt: cred.updatedAt.toISOString(),
+            bucketAccess: cred.bucketAccess.map(access => ({
+                id: access.bucketId,
+                name: access.bucket.name,
+            })),
+        } satisfies Credentials.S3.Credential)));
     } catch (error) {
-        console.error('Error fetching WebDAV credentials:', error);
-        res.status(500).json({ error: 'Failed to fetch WebDAV credentials' });
+        console.error('Error fetching S3 credentials:', error);
+        res.status(500).json({ error: 'Failed to fetch S3 credentials' });
     }
 });
 
@@ -52,12 +60,12 @@ const CreateCredentialSchema = Joi.object({
     }),
 });
 
-// Create new WebDAV credential
+// Create new S3 credential
 router.post('/', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization;
         const user = await AuthUser(token);
-        
+
         if (!user) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
@@ -84,33 +92,33 @@ router.post('/', async (req: Request, res: Response) => {
             return;
         }
 
-        // Generate unique username
-        let username: string;
+        // Generate unique access key
+        let accessKey: string;
         let attempts = 0;
         do {
             const randomSuffix = generateRandomString(4);
-            username = `${user.user.username}-dav-${randomSuffix}`;
-            const existing = await prisma.webDAVCredential.findUnique({
-                where: { username },
+            accessKey = `AKIA${user.user.id.split("-")[0]}${user.user.id.split("-")[1]}${randomSuffix}`.toUpperCase();
+            const existing = await prisma.s3Credential.findUnique({
+                where: { accessKey },
             });
             if (!existing) break;
             attempts++;
         } while (attempts < 10);
 
         if (attempts >= 10) {
-            res.status(500).json({ error: 'Failed to generate unique username' });
+            res.status(500).json({ error: 'Failed to generate unique access key' });
             return;
         }
 
-        // Generate password
-        const password = generateRandomString(16);
+        // Generate access secret
+        const accessSecret = generateRandomString(40);
 
         // Create credential with bucket access
-        const credential = await prisma.webDAVCredential.create({
+        const credential = await prisma.s3Credential.create({
             data: {
                 userId: user.user.id,
-                username,
-                password,
+                accessKey,
+                secretKey: accessSecret,
                 bucketAccess: {
                     create: bucketIds.map((bucketId: string) => ({
                         bucketId,
@@ -131,7 +139,15 @@ router.post('/', async (req: Request, res: Response) => {
             },
         });
 
-        res.status(201).json(credential);
+        res.status(201).json({
+            ...credential,
+            createdAt: credential.createdAt.toISOString(),
+            updatedAt: credential.updatedAt.toISOString(),
+            bucketAccess: credential.bucketAccess.map(access => ({
+                id: access.bucketId,
+                name: access.bucket.name,
+            })),
+        } satisfies Credentials.S3.Credential);
     } catch (error) {
         console.error('Error creating WebDAV credential:', error);
         res.status(500).json({ error: 'Failed to create WebDAV credential' });
@@ -145,12 +161,12 @@ const UpdateCredentialSchema = Joi.object({
     }),
 });
 
-// Update WebDAV credential (update bucket access)
+// Update S3 credential (update bucket access)
 router.put('/:id', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization;
         const user = await AuthUser(token);
-        
+
         if (!user) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
@@ -165,7 +181,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         const { bucketIds } = value;
 
         // Check if credential exists and belongs to user
-        const credential = await prisma.webDAVCredential.findFirst({
+        const credential = await prisma.s3Credential.findFirst({
             where: {
                 id: req.params.id,
                 userId: user.user.id,
@@ -173,7 +189,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         });
 
         if (!credential) {
-            res.status(404).json({ error: 'WebDAV credential not found' });
+            res.status(404).json({ error: 'S3 credential not found' });
             return;
         }
 
@@ -191,14 +207,14 @@ router.put('/:id', async (req: Request, res: Response) => {
         }
 
         // Delete existing bucket access
-        await prisma.webDAVBucketAccess.deleteMany({
+        await prisma.s3BucketAccess.deleteMany({
             where: {
                 credentialId: req.params.id,
             },
         });
 
         // Create new bucket access
-        const updated = await prisma.webDAVCredential.update({
+        const updated = await prisma.s3Credential.update({
             where: { id: req.params.id },
             data: {
                 bucketAccess: {
@@ -221,26 +237,34 @@ router.put('/:id', async (req: Request, res: Response) => {
             },
         });
 
-        res.json(updated);
+        res.json({
+            ...updated,
+            createdAt: updated.createdAt.toISOString(),
+            updatedAt: updated.updatedAt.toISOString(),
+            bucketAccess: updated.bucketAccess.map(access => ({
+                id: access.bucketId,
+                name: access.bucket.name,
+            })),
+        } satisfies Credentials.S3.Credential);
     } catch (error) {
-        console.error('Error updating WebDAV credential:', error);
-        res.status(500).json({ error: 'Failed to update WebDAV credential' });
+        console.error('Error updating S3 credential:', error);
+        res.status(500).json({ error: 'Failed to update S3 credential' });
     }
 });
 
-// Delete WebDAV credential
+// Delete S3 credential
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization;
         const user = await AuthUser(token);
-        
+
         if (!user) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
         }
 
         // Check if credential exists and belongs to user
-        const credential = await prisma.webDAVCredential.findFirst({
+        const credential = await prisma.s3Credential.findFirst({
             where: {
                 id: req.params.id,
                 userId: user.user.id,
@@ -248,18 +272,18 @@ router.delete('/:id', async (req: Request, res: Response) => {
         });
 
         if (!credential) {
-            res.status(404).json({ error: 'WebDAV credential not found' });
+            res.status(404).json({ error: 'S3 credential not found' });
             return;
         }
 
-        await prisma.webDAVCredential.delete({
+        await prisma.s3Credential.delete({
             where: { id: req.params.id },
         });
 
-        res.json({ message: 'WebDAV credential deleted successfully' });
+        res.json({ message: 'S3 credential deleted successfully' } satisfies API.BasicResponse);
     } catch (error) {
-        console.error('Error deleting WebDAV credential:', error);
-        res.status(500).json({ error: 'Failed to delete WebDAV credential' });
+        console.error('Error deleting S3 credential:', error);
+        res.status(500).json({ error: 'Failed to delete S3 credential' });
     }
 });
 

@@ -18,6 +18,7 @@ import SecurityPage from "./pages/app/settings/SecurityPage";
 import StoragePage from "./pages/app/settings/StoragePage";
 import AdminPage from "./pages/app/settings/AdminPage";
 import ScheduleTasksPage from "./pages/app/settings/ScheduleTasksPage";
+import S3Page from "./pages/app/credentials/S3Page";
 
 function App() {
   const { user, setUser } = useAuthStore();
@@ -72,6 +73,7 @@ function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="credentials">
           <Route path="webdav" element={<WebDAVPage />} />
+          <Route path="s3" element={<S3Page />} />
           <Route index element={<Navigate to="/app/credentials/webdav" replace />} />
         </Route>
         <Route path="settings">

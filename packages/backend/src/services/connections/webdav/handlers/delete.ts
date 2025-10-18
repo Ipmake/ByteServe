@@ -1,7 +1,7 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { prisma } from '../..';
+import { prisma } from '../../../..';
 import { WebDAVUser } from '../types';
 import { parseWebDAVPath } from '../utils';
 
@@ -9,11 +9,11 @@ export async function handleDelete(req: express.Request, res: express.Response) 
     try {
         const user: WebDAVUser = (req as any).webdavUser;
         const { bucket, objectPath } = parseWebDAVPath(req.path);
-        
+
         if (!bucket || objectPath === '/') {
             return res.status(403).send('Cannot delete root or bucket');
         }
-        
+
         // Get bucket
         const bucketObj = await prisma.bucket.findFirst({
             where: {
@@ -21,17 +21,17 @@ export async function handleDelete(req: express.Request, res: express.Response) 
                 id: { in: user.bucketIds },
             },
         });
-        
+
         if (!bucketObj) {
             return res.status(404).send('Bucket not found');
         }
-        
+
         // Find object to delete
         const pathParts = objectPath.split('/').filter(p => p);
         let currentParentId: string | null = null;
         let targetObject: any = null;
         const folderPath: string[] = [];
-        
+
         for (const part of pathParts) {
             targetObject = await prisma.object.findFirst({
                 where: {
@@ -40,68 +40,44 @@ export async function handleDelete(req: express.Request, res: express.Response) 
                     filename: part,
                 },
             });
-            
+
             if (!targetObject) {
                 return res.status(404).send('Not Found');
             }
-            
+
             // Track parent folders for building storage path
             if (targetObject.mimeType !== 'folder' || part !== pathParts[pathParts.length - 1]) {
                 if (currentParentId) {
                     folderPath.push(currentParentId);
                 }
             }
-            
+
             currentParentId = targetObject.id;
         }
-        
+
         // Build storage path
         const storagePath = path.join(
             process.cwd(),
             'storage',
             bucket,
-            ...folderPath,
             targetObject.id
         );
-        
+
         // Delete physical file/folder
         if (fs.existsSync(storagePath)) {
             if (targetObject.mimeType === 'folder') {
-                // Recursively delete folder and contents
-                fs.rmSync(storagePath, { recursive: true, force: true });
+                // Folders are virtual, directory doesn't exist. Children will be deleted by scheduled task.
             } else {
                 // Delete file
                 fs.unlinkSync(storagePath);
             }
         }
-        
-        // If it's a folder, also delete all children from database
-        if (targetObject.mimeType === 'folder') {
-            // Recursively delete all children
-            async function deleteChildren(parentId: string) {
-                const children = await prisma.object.findMany({
-                    where: { parentId },
-                });
-                
-                for (const child of children) {
-                    if (child.mimeType === 'folder') {
-                        await deleteChildren(child.id);
-                    }
-                }
-                
-                await prisma.object.deleteMany({
-                    where: { parentId },
-                });
-            }
-            
-            await deleteChildren(targetObject.id);
-        }
-        
+
         // Delete the object itself from database
         await prisma.object.delete({
             where: { id: targetObject.id },
         });
-        
+
         console.log('[WebDAV DELETE] Deleted:', objectPath);
         res.status(204).end();
     } catch (error) {

@@ -31,6 +31,7 @@ model User {
     AuthTokens       AuthTokens[]
     Bucket           Bucket[]
     WebDAVCredential WebDAVCredential[]
+    S3Credential     S3Credential[]
 }
 
 model AuthTokens {
@@ -47,7 +48,7 @@ model AuthTokens {
 
 model Bucket {
     id           String   @id @default(uuid())
-    name         String   @db.VarChar(64) @unique
+    name         String   @unique @db.VarChar(64)
     access       String   @default("private") @db.VarChar(32) // private, public-read, public-write
     storageQuota BigInt   @default(-1) // -1 means unlimited, otherwise in bytes
     createdAt    DateTime @default(now())
@@ -55,9 +56,10 @@ model Bucket {
 
     ownerId String
 
-    owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-    entries Object[]
-    webdavAccess WebDAVBucketAccess[]
+    owner          User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    entries        Object[]
+    webdavAccess   WebDAVBucketAccess[]
+    S3BucketAccess S3BucketAccess[]
 }
 
 model Object {
@@ -79,11 +81,11 @@ model Object {
 }
 
 model ScheduleTask {
-    id           String   @id @unique @db.VarChar(32)
-    displayName  String
-    enabled      Boolean  @default(true)
-    cron         String
-    lastRun      DateTime?
+    id          String    @id @unique @db.VarChar(32)
+    displayName String
+    enabled     Boolean   @default(true)
+    cron        String
+    lastRun     DateTime?
 }
 
 model WebDAVCredential {
@@ -94,8 +96,8 @@ model WebDAVCredential {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-    bucketAccess  WebDAVBucketAccess[]
+    user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+    bucketAccess WebDAVBucketAccess[]
 }
 
 model WebDAVBucketAccess {
@@ -105,6 +107,29 @@ model WebDAVBucketAccess {
 
     credential WebDAVCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
     bucket     Bucket           @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+    @@unique([credentialId, bucketId])
+}
+
+model S3Credential {
+    id        String   @id @default(uuid())
+    userId    String
+    accessKey String   @unique @db.VarChar(20)
+    secretKey String   @db.VarChar(40)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    bucketAccess S3BucketAccess[]
+}
+
+model S3BucketAccess {
+    id           String @id @default(uuid())
+    credentialId String
+    bucketId     String
+
+    credential S3Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+    bucket     Bucket       @relation(fields: [bucketId], references: [id], onDelete: Cascade)
 
     @@unique([credentialId, bucketId])
 }

@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-import { prisma } from '..';
+import { prisma } from '../../..';
 import { WebDAVUser } from './types';
 
 // Parse HTTP Digest Authorization header

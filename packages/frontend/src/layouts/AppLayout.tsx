@@ -34,6 +34,7 @@ import {
   VpnKey as KeyIcon,
   CloudSync as WebDAVIcon,
   Schedule as ScheduleIcon,
+  AppRegistration as S3Icon,
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../states/authStore';
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
     icon: <KeyIcon />,
     children: [
       { text: 'WebDAV', icon: <WebDAVIcon />, path: '/app/credentials/webdav' },
+      { text: 'S3', icon: <S3Icon />, path: '/app/credentials/s3' }
     ],
   },
   {

@@ -1,8 +1,5 @@
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
-import { prisma } from '../..';
+import { prisma } from '../../../..';
 import { WebDAVUser } from '../types';
 import { parseWebDAVPath } from '../utils';
 
@@ -67,12 +64,9 @@ export async function handleMkcol(req: express.Request, res: express.Response) {
             return res.status(405).send('Method Not Allowed - Collection already exists');
         }
         
-        // Create folder object
-        const folderId = crypto.randomBytes(16).toString('hex');
         
         await prisma.object.create({
             data: {
-                id: folderId,
                 bucketId: bucketObj.id,
                 parentId: parentId,
                 filename: newFolderName,
@@ -80,17 +74,6 @@ export async function handleMkcol(req: express.Request, res: express.Response) {
                 mimeType: 'folder',
             },
         });
-        
-        // Create physical directory
-        const storagePath = path.join(
-            process.cwd(),
-            'storage',
-            bucket,
-            ...folderPath,
-            folderId
-        );
-        
-        await fs.promises.mkdir(storagePath, { recursive: true });
         
         console.log('[WebDAV MKCOL] Created folder:', objectPath);
         res.status(201).end();

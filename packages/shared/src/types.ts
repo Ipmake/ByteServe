@@ -132,6 +132,29 @@ declare global {
     }
   }
 
+
+  namespace Credentials {
+
+    // ============================================
+    // Credential Models
+    // ============================================
+
+    namespace S3 {
+      interface Credential {
+        id: string;
+        userId: string;
+        accessKey: string;
+        secretKey: string;
+        createdAt: string;
+        updatedAt: string;
+        bucketAccess: Array<{
+          id: string;
+          name: string;
+        }>;
+      }
+    }
+  }
+
   namespace API {
     // ============================================
     // Generic API Types
@@ -143,9 +166,12 @@ declare global {
     }
 
     // Health check
-    interface Health {
+    interface Health extends BasicResponse {
       status: string;
-      message: string;
+    }
+
+    interface BasicResponse {
+      message: string;  
     }
   }
 }

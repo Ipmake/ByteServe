@@ -5,9 +5,10 @@ import { PrismaClient } from '@prisma/client';
 import { PGlite } from '@electric-sql/pglite';
 import { PrismaPGlite } from 'pglite-prisma-adapter';
 import { startServer } from './server';
-import { setupWebDAVServer } from './webdav/index';
+import { setupWebDAVServer } from './services/connections/webdav/index';
 import bodyParser from 'body-parser';
 import { live } from '@electric-sql/pglite/live';
+import { setupS3Server } from './services/connections/s3';
 
 dotenv.config();
 
@@ -25,9 +26,11 @@ const prisma = new PrismaClient({ adapter: adapter as any });
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Mount WebDAV FIRST, with raw body parser for all /dav routes
 app.use('/dav', bodyParser.raw({ type: '*/*', limit: '32gb' }));
+app.use('/s3/*', bodyParser.raw({ type: '*/*', limit: '32gb' }));
+
 setupWebDAVServer(app);
+setupS3Server(app);
 
 // All other middleware/routes after WebDAV
 app.use(cors());

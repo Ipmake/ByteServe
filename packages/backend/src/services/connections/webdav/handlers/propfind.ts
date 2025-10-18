@@ -1,5 +1,5 @@
 import express from 'express';
-import { prisma } from '../..';
+import { prisma } from '../../../..';
 import { WebDAVUser } from '../types';
 import { parseWebDAVPath, generatePropfindXML, encodeWebDAVPath } from '../utils';
 
@@ -101,16 +101,12 @@ export async function handlePropfind(req: express.Request, res: express.Response
                 },
             });
             
-            if (!targetObject) {
-                return res.status(404).send('Not Found');
-            }
+            if (!targetObject) return res.status(404).send('Not Found');
             
             currentParentId = targetObject.id;
         }
         
-        if (!targetObject) {
-            return res.status(404).send('Not Found');
-        }
+        if (!targetObject) return res.status(404).send('Not Found');
         
         // If it's a folder, list its contents
         if (targetObject.mimeType === 'folder') {
