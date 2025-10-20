@@ -25,8 +25,8 @@ export const apiService = {
     },
 
     // Auth
-    login: async (username: string, password: string) => {
-        const response = await api.post<Auth.Session>('/auth/login', { username, password });
+    login: async (username: string, password: string, deviceIdentifier: string) => {
+        const response = await api.post<Auth.Session>('/auth/login', { username, password, deviceIdentifier });
         return response.data;
     },
 
@@ -260,7 +260,7 @@ export const apiService = {
 
     runScheduleTask: async (id: string) => {
         const token = getAuthToken();
-        const res = await api.post(`/schedule-tasks/${id}/run`, {  }, {
+        const res = await api.post(`/schedule-tasks/${id}/run`, {}, {
             headers: { Authorization: token },
             timeout: 60000, // 60 seconds timeout for long-running tasks
         });
@@ -270,7 +270,7 @@ export const apiService = {
     // WebDAV Credentials
     getWebDAVCredentials: async () => {
         const token = getAuthToken();
-        const response = await api.get('/webdav-credentials', {
+        const response = await api.get('/credentials-webdav', {
             headers: { Authorization: token }
         });
         return response.data;
@@ -278,7 +278,7 @@ export const apiService = {
 
     createWebDAVCredential: async (bucketIds: string[]) => {
         const token = getAuthToken();
-        const response = await api.post('/webdav-credentials', { bucketIds }, {
+        const response = await api.post('/credentials-webdav', { bucketIds }, {
             headers: { Authorization: token }
         });
         return response.data;
@@ -286,7 +286,7 @@ export const apiService = {
 
     updateWebDAVCredential: async (id: string, bucketIds: string[]) => {
         const token = getAuthToken();
-        const response = await api.put(`/webdav-credentials/${id}`, { bucketIds }, {
+        const response = await api.put(`/credentials-webdav/${id}`, { bucketIds }, {
             headers: { Authorization: token }
         });
         return response.data;
@@ -294,16 +294,16 @@ export const apiService = {
 
     deleteWebDAVCredential: async (id: string) => {
         const token = getAuthToken();
-        const response = await api.delete(`/webdav-credentials/${id}`, {
+        const response = await api.delete(`/credentials-webdav/${id}`, {
             headers: { Authorization: token }
         });
         return response.data;
     },
 
-        // S3 Credentials
+    // S3 Credentials
     getS3Credentials: async () => {
         const token = getAuthToken();
-        const response = await api.get('/s3-credentials', {
+        const response = await api.get('/credentials-s3', {
             headers: { Authorization: token }
         });
         return response.data as Credentials.S3.Credential[];
@@ -311,7 +311,7 @@ export const apiService = {
 
     createS3Credential: async (bucketIds: string[]) => {
         const token = getAuthToken();
-        const response = await api.post('/s3-credentials', { bucketIds }, {
+        const response = await api.post('/credentials-s3', { bucketIds }, {
             headers: { Authorization: token }
         });
         return response.data as Credentials.S3.Credential;
@@ -319,7 +319,7 @@ export const apiService = {
 
     updateS3Credential: async (id: string, bucketIds: string[]) => {
         const token = getAuthToken();
-        const response = await api.put(`/s3-credentials/${id}`, { bucketIds }, {
+        const response = await api.put(`/credentials-s3/${id}`, { bucketIds }, {
             headers: { Authorization: token }
         });
         return response.data as Credentials.S3.Credential;
@@ -327,7 +327,32 @@ export const apiService = {
 
     deleteS3Credential: async (id: string) => {
         const token = getAuthToken();
-        const response = await api.delete(`/s3-credentials/${id}`, {
+        const response = await api.delete(`/credentials-s3/${id}`, {
+            headers: { Authorization: token }
+        });
+        return response.data as API.BasicResponse;
+    },
+
+    // API Credentials
+    getApiCredentials: async () => {
+        const token = getAuthToken();
+        const response = await api.get('/credentials-api', {
+            headers: { Authorization: token }
+        });
+        return response.data as Credentials.Api.Credential[];
+    },
+
+    createApiCredential: async (expiresInDays: number, description: string) => {
+        const token = getAuthToken();
+        const response = await api.post('/credentials-api', { expiresInDays, description }, {
+            headers: { Authorization: token }
+        });
+        return response.data as Credentials.Api.Credential;
+    },
+
+    deleteApiCredential: async (id: string) => {
+        const token = getAuthToken();
+        const response = await api.delete(`/credentials-api/${id}`, {
             headers: { Authorization: token }
         });
         return response.data as API.BasicResponse;

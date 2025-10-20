@@ -32,6 +32,9 @@ const LoginSchema = Joi.object({
     password: Joi.string().required().messages({
         'string.empty': 'Password is required',
         'any.required': 'Password is required'
+    }),
+    deviceIdentifier: Joi.string().max(128).optional().messages({
+        'string.max': 'Device identifier must not exceed 128 characters'
     })
 });
 
@@ -70,6 +73,7 @@ router.post('/login', async (req: Request, res: Response) => {
     await prisma.authTokens.create({
         data: {
             token: newToken,
+            description: value.deviceIdentifier || "Unknown Device",
             userId: user.id,
             isApi: false,
             expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days

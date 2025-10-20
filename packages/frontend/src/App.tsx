@@ -19,6 +19,7 @@ import StoragePage from "./pages/app/settings/StoragePage";
 import AdminPage from "./pages/app/settings/AdminPage";
 import ScheduleTasksPage from "./pages/app/settings/ScheduleTasksPage";
 import S3Page from "./pages/app/credentials/S3Page";
+import ApiPage from "./pages/app/credentials/ApiPage";
 
 function App() {
   const { user, setUser } = useAuthStore();
@@ -72,9 +73,10 @@ function App() {
         <Route path="buckets/:bucketId" element={<FileBrowserPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="credentials">
-          <Route path="webdav" element={<WebDAVPage />} />
+          <Route path="api" element={<ApiPage />} />
           <Route path="s3" element={<S3Page />} />
-          <Route index element={<Navigate to="/app/credentials/webdav" replace />} />
+          <Route path="webdav" element={<WebDAVPage />} />
+          <Route index element={<Navigate to="/app/credentials/api" replace />} />
         </Route>
         <Route path="settings">
           <Route path="account" element={<AccountPage />} />

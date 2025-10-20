@@ -35,11 +35,12 @@ model User {
 }
 
 model AuthTokens {
-    id        String   @id @default(uuid())
-    userId    String
-    token     String   @unique @db.VarChar(256)
-    expiresAt DateTime
-    createdAt DateTime @default(now())
+    id          String   @id @default(uuid())
+    userId      String
+    description String   @db.VarChar(128)
+    token       String   @unique @db.VarChar(256)
+    expiresAt   DateTime
+    createdAt   DateTime @default(now())
 
     isApi Boolean @default(false) // Indicates if the token is for API access (disallows web login)
 

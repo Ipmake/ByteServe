@@ -9,9 +9,10 @@ import {
   Alert,
 } from "@mui/material";
 import { FolderOpen as FolderIcon } from "@mui/icons-material";
-import axios from "axios";
+import bowser from "bowser";
 import { useAuthStore } from "../states/authStore";
 import { SHA256 } from "crypto-js";
+import { apiService } from "../api";
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -32,21 +33,23 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await axios.post("/api/auth/login", {
+      const browserData = bowser.getParser(window.navigator.userAgent);
+      const response = await apiService.login(
         username,
-        password: SHA256(`filegrave${password}filegrave`).toString(),
-      });
+        SHA256(`filegrave${password}filegrave`).toString(),
+        `${browserData.getBrowserName()} on ${browserData.getOSName()}`.slice(0, 128)
+      );
 
       // Store the token and user info
-      localStorage.setItem("authToken", response.data.token);
+      localStorage.setItem("authToken", response.token);
 
       useAuthStore.getState().setUser({
-        id: response.data.id,
-        username: response.data.username,
-        token: response.data.token,
+        id: response.id,
+        username: response.username,
+        token: response.token,
         isApi: false,
-        isAdmin: response.data.isAdmin,
-        storageQuota: response.data.storageQuota,
+        isAdmin: response.isAdmin,
+        storageQuota: response.storageQuota,
       });
     } catch (err: any) {
       console.error("Login error:", err);

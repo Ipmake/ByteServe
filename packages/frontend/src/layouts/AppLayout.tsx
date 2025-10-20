@@ -35,6 +35,7 @@ import {
   CloudSync as WebDAVIcon,
   Schedule as ScheduleIcon,
   AppRegistration as S3Icon,
+  BrowserUpdated as ApiIcon,
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../states/authStore';
@@ -59,8 +60,9 @@ const navItems: NavItem[] = [
     text: 'Credentials',
     icon: <KeyIcon />,
     children: [
+      { text: 'API', icon: <ApiIcon />, path: '/app/credentials/api' },
+      { text: 'S3', icon: <S3Icon />, path: '/app/credentials/s3' },
       { text: 'WebDAV', icon: <WebDAVIcon />, path: '/app/credentials/webdav' },
-      { text: 'S3', icon: <S3Icon />, path: '/app/credentials/s3' }
     ],
   },
   {

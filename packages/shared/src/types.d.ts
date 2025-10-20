@@ -107,6 +107,17 @@ declare global {
                 }>;
             }
         }
+        namespace Api {
+            interface Credential {
+                id: string;
+                userId: string;
+                description: string;
+                token: string;
+                expiresAt: string;
+                createdAt: string;
+                isApi: boolean;
+            }
+        }
     }
     namespace API {
         interface Error {
