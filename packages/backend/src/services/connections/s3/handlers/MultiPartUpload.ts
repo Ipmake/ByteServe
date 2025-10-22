@@ -285,8 +285,24 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 return res.status(400).send('Parent path is not a folder');
             }
 
+            // Create a folder
+            if((req.params as any)[0].endsWith('/')) {
+                await prisma.object.create({
+                    data: {
+                        bucketId: bucketObj.id,
+                        filename: filename,
+                        mimeType: 'folder',
+                        size: 0,
+                        parentId: parentObject ? parentObject.id : null,
+                    }
+                });
+
+                return res.status(200).send();
+            }
+
             const tempFilePath = path.join(getStorageDir(), ".temp", `singlepart_${randomUUID()}`);
 
+            // TODO: Add folder move support
             if (copySrc && typeof copySrc === 'string') {
                 const srcPath = decodeURIComponent(copySrc);
                 const srcPathSegments = srcPath.split('/').filter(p => p);
