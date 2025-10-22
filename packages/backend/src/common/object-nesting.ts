@@ -26,5 +26,9 @@ export async function resolvePath(bucketName: string, pathSegments: string[]): P
 }
 
 export function getObjectPath(bucketName: string, objectId: string): string {
-  return path.join(process.cwd(), 'storage', bucketName, objectId);
+  return path.join(getStorageDir(), bucketName, objectId);
+}
+
+export function getStorageDir(): string {
+  return path.join(process.cwd(), 'storage');
 }

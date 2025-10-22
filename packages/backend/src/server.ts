@@ -5,6 +5,7 @@ import express from 'express';
 import { Init } from './utils/initServer';
 import ScheduledTasksService from './services/scheduledTasks';
 import { setupS3Server } from './services/connections/s3';
+import { getStorageDir } from './common/object-nesting';
 
 export async function startServer(port: number | string) {
     await Init();
@@ -46,6 +47,7 @@ export async function startServer(port: number | string) {
             app.use((req, res, next) => {
                 if (req.path.startsWith('/api/')) return next();
                 if (req.path.startsWith('/dav')) return next();
+                if (req.path.startsWith('/s3')) return next();
                 const indexPath = path.join(wwwDir, 'index.html');
                 res.sendFile(indexPath, (err) => {
                     if (err) {
@@ -60,9 +62,17 @@ export async function startServer(port: number | string) {
             app.use((req, res, next) => {
                 if (req.path.startsWith('/api/')) return next();
                 if (req.path.startsWith('/dav')) return next();
+                if (req.path.startsWith('/s3')) return next();
                 res.status(404).json({ error: 'Route not found' });
             });
         }
+
+        // Clean .temp directory on startup
+        console.log('Cleaning temporary files...');
+        const tempDir = path.join(getStorageDir(), '.temp');
+        await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+        await fs.mkdir(tempDir, { recursive: true }).catch(() => {});
+        console.log('Temporary files cleaned.');
         
         return app.listen(port, () => {
             console.log(`Server running on http://localhost:${port}`);

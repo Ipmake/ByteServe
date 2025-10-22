@@ -1,11 +1,9 @@
 import express from 'express';
-import { S3SigV4Auth } from './SigV4Util';
-import { prisma } from '../../..';
-import auth from '../../../routes/auth';
-import { getObjectPath, resolvePath } from '../../../common/object-nesting';
 import S3Handlers_GetObject from './handlers/GetObject';
 import S3Handlers_ListBuckets from './handlers/ListBuckets';
 import S3Handlers_ListObjectsV2 from './handlers/ListObjectsV2';
+import S3Handlers_PostObject from './handlers/MultiPartUpload';
+import S3Handlers_DeleteObject from './handlers/DeleteObject';
 
 export function setupS3Server(app: express.Application) {
     console.log("Setting up S3 server routes...");
@@ -24,8 +22,10 @@ export function setupS3Server(app: express.Application) {
     S3Handlers_ListBuckets(router);
     S3Handlers_ListObjectsV2(router);
     S3Handlers_GetObject(router);
+    S3Handlers_PostObject(router);
+    S3Handlers_DeleteObject(router);
 
-    app.use('/s3', express.raw({ type: '*/*', limit: '32gb' }), router);
+    app.use('/s3', router);
 
     console.log("S3 server mounted at /s3");
 }

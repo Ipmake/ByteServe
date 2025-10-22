@@ -38,7 +38,8 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
 
             const credentialsInDb = await prisma.s3Credential.findUnique({
                 where: {
-                    accessKey: accessKeyId
+                    accessKey: accessKeyId,
+                    bucketAccess: { some: { bucketId: bucketObj.id } }
                 },
                 include: {
                     user: true

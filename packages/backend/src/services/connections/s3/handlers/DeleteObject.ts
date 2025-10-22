@@ -2,9 +2,10 @@ import express from 'express';
 import { prisma } from '../../../..';
 import { S3SigV4Auth } from '../SigV4Util';
 import { getObjectPath, resolvePath } from '../../../../common/object-nesting';
+import fs from 'fs/promises';
 
-export default function S3Handlers_GetObject(router: express.Router) {
-   router.get('/:bucket/*', async (req, res) => {
+export default function S3Handlers_DeleteObject(router: express.Router) {
+   router.delete('/:bucket/*', async (req, res) => {
         const { bucket } = req.params;
         const objectPath = (req.params as any)[0] || '';
 
@@ -17,7 +18,7 @@ export default function S3Handlers_GetObject(router: express.Router) {
 
         if (!bucketObj) return res.status(404).send('Bucket not found');
 
-        if (bucketObj.access === 'private') {
+        if (bucketObj.access === 'private' || bucketObj.access === 'public-read') {
             const accessKeyId = S3SigV4Auth.extractAccessKeyId(req.headers);
 
             if (!accessKeyId) return res.status(401).send('Unauthorized');
@@ -25,9 +26,7 @@ export default function S3Handlers_GetObject(router: express.Router) {
             const credentialsInDb = await prisma.s3Credential.findUnique({
                 where: {
                     accessKey: accessKeyId,
-                    bucketAccess: {
-                        some: { bucketId: bucketObj.id }
-                    }
+                    bucketAccess: { some: { bucketId: bucketObj.id } }
                 },
                 include: {
                     user: true
@@ -54,10 +53,14 @@ export default function S3Handlers_GetObject(router: express.Router) {
 
         if (!object) return res.status(404).send('Object not found');
 
-        res.setHeader('Content-Length', object.size.toString());
-        res.setHeader('Content-Type', object.mimeType);
-        res.setHeader('ETag', `"${object.id}"`);
+        await prisma.object.delete({
+            where: {
+                id: object.id
+            }
+        });
 
-        res.sendFile(getObjectPath(bucketObj.name, object.id));
+        await fs.unlink(getObjectPath(bucketObj.name, object.id)).catch(() => {});
+
+        res.status(204).send();
     });
 }

@@ -9,6 +9,7 @@ import { setupWebDAVServer } from './services/connections/webdav/index';
 import bodyParser from 'body-parser';
 import { live } from '@electric-sql/pglite/live';
 import { setupS3Server } from './services/connections/s3';
+import { createClient as createRedisClient } from "redis";
 
 dotenv.config();
 
@@ -23,11 +24,40 @@ const adapter = new PrismaPGlite(pgliteClient);
 // Create Prisma client with the adapter
 const prisma = new PrismaClient({ adapter: adapter as any });
 
+const redis = createRedisClient({
+  url: process.env.REDIS_CONNECTION_STRING
+});
+
+redis.on('error', (err) => console.error('Redis Client Error', err));
+
+redis.connect().then(() => {
+  console.log('Connected to Redis successfully');
+
+  // flush all keys on startup for a clean state
+  redis.flushAll().then(() => {
+    console.log('Flushed all keys in Redis on startup');
+  }).catch((err) => {
+    console.error('Failed to flush Redis keys on startup:', err);
+  });
+}).catch((err) => {
+  console.error('Failed to connect to Redis:', err);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use('/dav', bodyParser.raw({ type: '*/*', limit: '32gb' }));
-app.use('/s3/*', bodyParser.raw({ type: '*/*', limit: '32gb' }));
+app.use('/dav/*', bodyParser.raw({
+  type: (req) => {
+    return true;
+  },
+  limit: '500mb'
+}));
+app.use('/s3/*', bodyParser.raw({
+  type: (req) => {
+    return true;
+  },
+  limit: '500mb'
+}));
 
 setupWebDAVServer(app);
 setupS3Server(app);
@@ -41,7 +71,7 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
-export { app, prisma, pgliteClient };
+export { app, prisma, pgliteClient, redis };
 
 startServer(PORT).catch((err) => {
   console.error('Error starting server:', err);

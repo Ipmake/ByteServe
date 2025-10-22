@@ -6,6 +6,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
+import mime from 'mime';
 
 const router = Router();
 
@@ -120,25 +121,7 @@ router.post('/file', AuthLoader, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Bucket not found' });
     }
 
-    // Determine MIME type from extension
-    const ext = filename.split('.').pop()?.toLowerCase() || '';
-    const mimeTypeMap: { [key: string]: string } = {
-      txt: 'text/plain',
-      js: 'text/javascript',
-      ts: 'text/typescript',
-      jsx: 'text/javascript',
-      tsx: 'text/typescript',
-      json: 'application/json',
-      html: 'text/html',
-      css: 'text/css',
-      md: 'text/markdown',
-      py: 'text/x-python',
-      java: 'text/x-java',
-      xml: 'application/xml',
-      yaml: 'text/yaml',
-      yml: 'text/yaml',
-    };
-    const mimeType = mimeTypeMap[ext] || 'text/plain';
+    const mimeType = mime.lookup(filename) || 'text/plain';
 
     // Create object in database
     const file = await prisma.object.create({

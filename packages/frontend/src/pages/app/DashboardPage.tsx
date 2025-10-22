@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Typography,
   Box,
@@ -16,7 +16,7 @@ import {
   CircularProgress,
   Alert,
   LinearProgress,
-} from '@mui/material';
+} from "@mui/material";
 import {
   InsertDriveFile,
   Folder,
@@ -25,11 +25,15 @@ import {
   Lock,
   LockOpen,
   Edit,
-} from '@mui/icons-material';
-import { useAuthStore } from '../../states/authStore';
-import { useNavigate } from 'react-router-dom';
-import { formatBytes, calculateQuotaPercentage, getQuotaColor } from '../../utils/format';
-import { apiService } from '../../api';
+} from "@mui/icons-material";
+import { useAuthStore } from "../../states/authStore";
+import { useNavigate } from "react-router-dom";
+import {
+  formatBytes,
+  calculateQuotaPercentage,
+  getQuotaColor,
+} from "../../utils/format";
+import { apiService } from "../../api";
 
 interface DashboardStats {
   totalBuckets: number;
@@ -62,21 +66,23 @@ export default function Dashboard() {
       const data = await apiService.getDashboardStats();
       setStats(data);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to fetch dashboard stats');
+      setError(
+        err.response?.data?.error ||
+          err.message ||
+          "Failed to fetch dashboard stats"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-
-
   const getAccessIcon = (access: string) => {
     switch (access) {
-      case 'private':
+      case "private":
         return <Lock fontSize="small" />;
-      case 'public-read':
+      case "public-read":
         return <LockOpen fontSize="small" />;
-      case 'public-write':
+      case "public-write":
         return <Edit fontSize="small" />;
       default:
         return <Lock fontSize="small" />;
@@ -85,20 +91,27 @@ export default function Dashboard() {
 
   const getAccessColor = (access: string) => {
     switch (access) {
-      case 'private':
-        return 'error';
-      case 'public-read':
-        return 'info';
-      case 'public-write':
-        return 'success';
+      case "private":
+        return "error";
+      case "public-read":
+        return "info";
+      case "public-write":
+        return "success";
       default:
-        return 'default';
+        return "default";
     }
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "50vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -125,11 +138,14 @@ export default function Dashboard() {
       </Typography>
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/app/buckets')}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            sx={{ cursor: "pointer" }}
+            onClick={() => navigate("/app/buckets")}
+          >
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Folder sx={{ mr: 1, color: 'primary.main' }} />
+              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                <Folder sx={{ mr: 1, color: "primary.main" }} />
                 <Typography variant="h6">Buckets</Typography>
               </Box>
               <Typography variant="h4">{stats?.totalBuckets || 0}</Typography>
@@ -141,11 +157,14 @@ export default function Dashboard() {
         </Grid>
 
         {user?.isAdmin && (
-          <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/app/users')}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card
+              sx={{ cursor: "pointer" }}
+              onClick={() => navigate("/app/users")}
+            >
               <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <People sx={{ mr: 1, color: 'success.main' }} />
+                <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                  <People sx={{ mr: 1, color: "success.main" }} />
                   <Typography variant="h6">Users</Typography>
                 </Box>
                 <Typography variant="h4">{stats?.totalUsers || 0}</Typography>
@@ -157,32 +176,54 @@ export default function Dashboard() {
           </Grid>
         )}
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ cursor: 'pointer' }} onClick={() => navigate('/app/settings')}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card
+            sx={{ cursor: "pointer" }}
+            onClick={() => navigate("/app/settings")}
+          >
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <StorageIcon sx={{ mr: 1, color: 'info.main' }} />
+              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                <StorageIcon sx={{ mr: 1, color: "info.main" }} />
                 <Typography variant="h6">Storage</Typography>
               </Box>
               {stats?.storageQuota === -1 ? (
                 <>
-                  <Typography variant="h4">{formatBytes(stats?.totalSize || 0)}</Typography>
+                  <Typography variant="h4">
+                    {formatBytes(stats?.totalSize || 0)}
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Unlimited quota
                   </Typography>
                 </>
               ) : (
                 <>
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mb: 1 }}>
-                    <Typography variant="h4">{formatBytes(stats?.totalSize || 0)}</Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "baseline",
+                      gap: 0.5,
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="h4">
+                      {formatBytes(stats?.totalSize || 0)}
+                    </Typography>
                     <Typography variant="body2" color="text.secondary">
                       / {formatBytes(stats?.storageQuota || 0)}
                     </Typography>
                   </Box>
                   <LinearProgress
                     variant="determinate"
-                    value={calculateQuotaPercentage(stats?.totalSize || 0, stats?.storageQuota || 0)}
-                    color={getQuotaColor(calculateQuotaPercentage(stats?.totalSize || 0, stats?.storageQuota || 0))}
+                    value={calculateQuotaPercentage(
+                      stats?.totalSize || 0,
+                      stats?.storageQuota || 0
+                    )}
+                    color={getQuotaColor(
+                      calculateQuotaPercentage(
+                        stats?.totalSize || 0,
+                        stats?.storageQuota || 0
+                      )
+                    )}
                     sx={{ mb: 1, height: 6, borderRadius: 1 }}
                   />
                 </>
@@ -191,11 +232,17 @@ export default function Dashboard() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3,
+          }}
+        >
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <InsertDriveFile sx={{ mr: 1, color: 'warning.main' }} />
+              <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                <InsertDriveFile sx={{ mr: 1, color: "warning.main" }} />
                 <Typography variant="h6">Files</Typography>
               </Box>
               <Typography variant="h4">{stats?.totalObjects || 0}</Typography>
@@ -227,11 +274,13 @@ export default function Dashboard() {
                   <TableRow
                     key={bucket.id}
                     hover
-                    sx={{ cursor: 'pointer' }}
+                    sx={{ cursor: "pointer" }}
                     onClick={() => navigate(`/app/buckets/${bucket.id}`)}
                   >
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
                         <Folder fontSize="small" color="primary" />
                         <Typography variant="body2">{bucket.name}</Typography>
                       </Box>
