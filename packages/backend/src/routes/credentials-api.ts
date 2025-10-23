@@ -1,5 +1,5 @@
 import express from 'express';
-import { AuthenticatedRequest, AuthLoader } from '../utils/authLoader';
+import { AuthLoader } from '../utils/authLoader';
 import { prisma } from '..';
 import Joi from 'joi';
 import crypto from 'crypto';
@@ -7,28 +7,30 @@ import crypto from 'crypto';
 const router = express.Router();
 
 router.get('/', AuthLoader, async (req, res) => {
-  try {
-    const { user } = req as AuthenticatedRequest;
+    try {
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const apiTokens = await prisma.authTokens.findMany({
-        where: {
-            userId: user.id,
-            isApi: true
-        }, 
-        orderBy: {
-            createdAt: 'desc'
-        }
-    });
+        const { user, token } = req.user;
 
-    res.json(apiTokens.map(token => ({
-        ...token,
-        expiresAt: token.expiresAt.toISOString(),
-        createdAt: token.createdAt.toISOString()
-    } satisfies Credentials.Api.Credential)));
-  } catch (error) {
-    console.error('Error fetching credentials:', error);
-    res.status(500).json({ error: 'Failed to fetch credentials' });
-  }
+        const apiTokens = await prisma.authTokens.findMany({
+            where: {
+                userId: user.id,
+                isApi: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        res.json(apiTokens.map(token => ({
+            ...token,
+            expiresAt: token.expiresAt.toISOString(),
+            createdAt: token.createdAt.toISOString()
+        } satisfies Credentials.Api.Credential)));
+    } catch (error) {
+        console.error('Error fetching credentials:', error);
+        res.status(500).json({ error: 'Failed to fetch credentials' });
+    }
 });
 
 const CreateCredentialSchema = Joi.object({
@@ -48,7 +50,9 @@ const CreateCredentialSchema = Joi.object({
 
 router.post('/', AuthLoader, async (req, res) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const { user, token } = req.user;
 
         const { error, value } = CreateCredentialSchema.validate(req.body);
         if (error) {
@@ -81,7 +85,9 @@ router.post('/', AuthLoader, async (req, res) => {
 
 router.delete('/:id', AuthLoader, async (req, res) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const { user, token } = req.user;
         const { id } = req.params;
 
         const credential = await prisma.authTokens.findUnique({

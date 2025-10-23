@@ -119,6 +119,22 @@ declare global {
             }
         }
     }
+    namespace Config {
+        interface ConfigItem {
+            key: string;
+            value: string;
+            category: string;
+            description: string | null;
+            type: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'SELECT';
+            selectOptions: string[];
+        }
+        interface BucketConfigItem {
+            bucketId: string;
+            key: string;
+            value: string;
+            type: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'SELECT';
+        }
+    }
     namespace API {
         interface Error {
             error: string;

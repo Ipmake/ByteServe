@@ -1,14 +1,42 @@
+import { $Enums } from "@prisma/client";
 import { prisma } from "..";
 import { HashPW } from "./authLoader";
+import { ConfigManager } from "../services/configService";
 
 export async function Init() {
 
     // Initialize database connections
     await prisma.$connect();
 
+    try {
+        await prisma.$executeRaw`CREATE PUBLICATION alltables FOR ALL TABLES`;
+    } catch (error: any) {
+        // Publication already exists, ignore the error
+        if (!error.message?.includes('already exists')) {
+            throw error;
+        }
+    }
+
     console.log("Start Database checks: ")
 
     process.stdout.write("\n")
+
+    process.stdout.write("Config Present: ")
+
+    await prisma.config.createMany({
+        data: [
+            {
+                key: "site_name",
+                value: "ByteServe Server",
+                description: "The name of the site displayed in the UI",
+                type: $Enums.ConfigType.STRING,
+                selectOptions: [],
+            }
+        ],
+        skipDuplicates: true,
+    })
+
+    process.stdout.write("OK \n")
 
     process.stdout.write("Admin Present: ")
     if ((await prisma.user.count({
@@ -62,4 +90,7 @@ export async function Init() {
 
     process.stdout.write("\n")
     console.log("Database checks complete.")
+
+    // Initialize Config Manager
+    new ConfigManager();
 }

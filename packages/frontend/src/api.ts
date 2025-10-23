@@ -90,6 +90,31 @@ export const apiService = {
         return response.data;
     },
 
+    // Bucket Config
+    getBucketConfig: async (bucketId: string) => {
+        const token = getAuthToken();
+        const response = await api.get<Config.BucketConfigItem[]>(`/buckets/${bucketId}/config`, {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
+    updateBucketConfigItem: async (bucketId: string, key: string, value: string) => {
+        const token = getAuthToken();
+        const response = await api.put<Config.BucketConfigItem>(`/buckets/${bucketId}/config/${key}`, { value }, {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
+    updateBucketConfigItemsBulk: async (bucketId: string, items: Array<{ key: string; value: string, type?: 'STRING' | 'NUMBER' | 'BOOLEAN' }>) => {
+        const token = getAuthToken();
+        const response = await api.put<Config.BucketConfigItem[]>(`/buckets/${bucketId}/config`, { configs: items }, {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
     // Objects (Files/Folders)
     getObjects: async (bucketId: string, parentId?: string) => {
         const token = getAuthToken();
@@ -356,6 +381,31 @@ export const apiService = {
             headers: { Authorization: token }
         });
         return response.data as API.BasicResponse;
+    },
+
+    // Config (admin only)
+    getConfig: async () => {
+        const token = getAuthToken();
+        const response = await api.get<Config.ConfigItem[]>('/config', {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
+    updateConfigItem: async (key: string, value: string) => {
+        const token = getAuthToken();
+        const response = await api.put<Config.ConfigItem>(`/config/${key}`, { value }, {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
+    updateConfigItemsBulk: async (items: Array<{ key: string; value: string }>) => {
+        const token = getAuthToken();
+        const response = await api.put<Config.ConfigItem[]>('/config', { configs: items }, {
+            headers: { Authorization: token }
+        });
+        return response.data;
     },
 };
 

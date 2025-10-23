@@ -11,9 +11,20 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
+enum ConfigType {
+    STRING
+    NUMBER
+    BOOLEAN
+    SELECT
+}
+
 model Config {
-    key   String @id @db.VarChar(64)
-    value String @db.VarChar(256)
+    key           String     @id @db.VarChar(64)
+    value         String     @db.VarChar(256)
+    category      String     @default("general") @db.VarChar(64)
+    description   String?    @db.VarChar(512)
+    type          ConfigType
+    selectOptions String[]   @default([]) @db.VarChar(256) // When type is not SELECT, this will be auto suggestions
 }
 
 model User {
@@ -61,6 +72,19 @@ model Bucket {
     entries        Object[]
     webdavAccess   WebDAVBucketAccess[]
     S3BucketAccess S3BucketAccess[]
+    BucketConfig   BucketConfig[]
+}
+
+model BucketConfig {
+    bucketId String
+    key      String @db.VarChar(64)
+    value    String @db.VarChar(256)
+
+    type ConfigType @default(STRING)
+
+    bucket Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+    @@id([bucketId, key])
 }
 
 model Object {

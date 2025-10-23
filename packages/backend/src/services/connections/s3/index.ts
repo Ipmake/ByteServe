@@ -6,8 +6,6 @@ import S3Handlers_PostObject from './handlers/MultiPartUpload';
 import S3Handlers_DeleteObject from './handlers/DeleteObject';
 
 export function setupS3Server(app: express.Application) {
-    console.log("Setting up S3 server routes...");
-
     const router = express.Router({
 
     });

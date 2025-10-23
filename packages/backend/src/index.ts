@@ -10,11 +10,16 @@ import bodyParser from 'body-parser';
 import { live } from '@electric-sql/pglite/live';
 import { setupS3Server } from './services/connections/s3';
 import { createClient as createRedisClient } from "redis";
+import postgres from 'postgres';
 
 dotenv.config();
 
 // Create Prisma client with the adapter
 const prisma = new PrismaClient({ });
+
+const psql = postgres(process.env.DATABASE_URL ?? "", {
+    publications: 'alltables'
+})
 
 const redis = createRedisClient({
   url: process.env.REDIS_CONNECTION_STRING
@@ -63,7 +68,7 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
-export { app, prisma, redis };
+export { app, prisma, redis, psql };
 
 startServer(PORT).catch((err) => {
   console.error('Error starting server:', err);

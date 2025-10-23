@@ -1,9 +1,10 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { prisma } from '../index';
 import Joi from 'joi';
-import { AuthLoader, AuthenticatedRequest } from '../utils/authLoader';
+import { AuthLoader } from '../utils/authLoader';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { $Enums } from '@prisma/client';
 
 const router = Router();
 
@@ -29,7 +30,9 @@ const updateBucketSchema = Joi.object({
 // GET /api/buckets - Get all buckets for the authenticated user
 router.get('/', AuthLoader, async (req, res: Response) => {
   try {
-    const { user, token } = req as AuthenticatedRequest;
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user, token } = req.user;
 
     const buckets = await prisma.bucket.findMany({
       where: {
@@ -82,7 +85,9 @@ router.get('/', AuthLoader, async (req, res: Response) => {
 // GET /api/buckets/check/:name - Check if bucket name is available
 router.get('/check/:name', AuthLoader, async (req, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user } = req.user;
     const { name } = req.params;
 
     // Validate the name format
@@ -124,7 +129,9 @@ router.get('/check/:name', AuthLoader, async (req, res: Response) => {
 // GET /api/buckets/:id - Get a specific bucket
 router.get('/:id', AuthLoader, async (req, res: Response) => {
   try {
-    const { user, token } = req as AuthenticatedRequest;
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user, token } = req.user;
     const { id } = req.params;
 
     const bucket = await prisma.bucket.findFirst({
@@ -173,7 +180,9 @@ router.get('/:id', AuthLoader, async (req, res: Response) => {
 // POST /api/buckets - Create a new bucket
 router.post('/', AuthLoader, async (req, res: Response) => {
   try {
-    const { user, token } = req as AuthenticatedRequest;
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user, token } = req.user;
     const { error, value } = createBucketSchema.validate(req.body);
 
     if (error) {
@@ -200,6 +209,13 @@ router.post('/', AuthLoader, async (req, res: Response) => {
         access,
         storageQuota: BigInt(storageQuota),
         ownerId: user.id,
+        BucketConfig: {
+          create: [
+            { key: 'versioning', value: 'false', type: $Enums.ConfigType.BOOLEAN },
+            { key: 'cache_path_caching_enable', value: 'false', type: $Enums.ConfigType.BOOLEAN },
+            { key: 'cache_path_caching_ttl_seconds', value: '300', type: $Enums.ConfigType.NUMBER },
+          ]
+        }
       },
       include: {
         _count: {
@@ -236,7 +252,9 @@ router.post('/', AuthLoader, async (req, res: Response) => {
 // PUT /api/buckets/:id - Update a bucket
 router.put('/:id', AuthLoader, async (req, res: Response) => {
   try {
-    const { user, token } = req as AuthenticatedRequest;
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user, token } = req.user;
     const { id } = req.params;
     const { error, value } = updateBucketSchema.validate(req.body);
 
@@ -320,7 +338,9 @@ router.put('/:id', AuthLoader, async (req, res: Response) => {
 // DELETE /api/buckets/:id - Delete a bucket
 router.delete('/:id', AuthLoader, async (req, res: Response) => {
   try {
-    const { user, token } = req as AuthenticatedRequest;
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user, token } = req.user;
     const { id } = req.params;
 
     // Check if bucket exists and belongs to user
@@ -348,5 +368,156 @@ router.delete('/:id', AuthLoader, async (req, res: Response) => {
     res.status(500).json({ error: 'Failed to delete bucket' });
   }
 });
+
+router.get('/:id/config', AuthLoader, async (req, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user, token } = req.user;
+    const { id } = req.params;
+
+    // Check if bucket exists and belongs to user
+    const bucket = await prisma.bucket.findFirst({
+      where: {
+        id,
+        ownerId: user.id,
+      },
+      include: {
+        BucketConfig: true,
+      },
+    });
+
+    if (!bucket) {
+      return res.status(404).json({ error: 'Bucket not found' });
+    }
+
+    res.json(bucket.BucketConfig.map((config) => ({
+      bucketId: config.bucketId,
+      key: config.key,
+      value: config.value,
+      type: config.type,
+    } satisfies Config.BucketConfigItem)));
+  } catch (error) {
+    console.error('Error fetching bucket config:', error);
+    res.status(500).json({ error: 'Failed to fetch bucket config' });
+  }
+});
+
+router.put('/:id/config/:key', AuthLoader, async (req, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user, token } = req.user;
+    const { id, key } = req.params;
+    const { value } = req.body;
+
+    // Check if bucket exists and belongs to user
+    const bucket = await prisma.bucket.findFirst({
+      where: {
+        id,
+        ownerId: user.id,
+      },
+    });
+
+    if (!bucket) {
+      return res.status(404).json({ error: 'Bucket not found' });
+    }
+
+    // Update or create the config item
+    const updatedConfig = await prisma.bucketConfig.upsert({
+      where: {
+        bucketId_key: {
+          bucketId: bucket.id,
+          key: key,
+        },
+      },
+      update: {
+        value: value,
+      },
+      create: {
+        bucketId: bucket.id,
+        key: key,
+        value: value,
+        type: $Enums.ConfigType.STRING,
+      },
+    });
+
+    res.json({
+      bucketId: updatedConfig.bucketId,
+      key: updatedConfig.key,
+      value: updatedConfig.value,
+      type: updatedConfig.type,
+    } satisfies Config.BucketConfigItem);
+  } catch (error) {
+    console.error('Error updating bucket config:', error);
+    res.status(500).json({ error: 'Failed to update bucket config' });
+  }
+})
+
+const BulkUpdateBucketConfigSchema = Joi.array().items(
+  Joi.object({
+    key: Joi.string().required().min(1).max(64),
+    value: Joi.string().required().max(256),
+    type: Joi.string().valid('STRING', 'NUMBER', 'BOOLEAN').default('STRING'),
+  })
+)
+
+router.put('/:id/config', AuthLoader, async (req, res: Response) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { user, token } = req.user;
+    const { id } = req.params;
+    const { error, value } = BulkUpdateBucketConfigSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
+    }
+
+    // Check if bucket exists and belongs to user
+    const bucket = await prisma.bucket.findFirst({
+      where: {
+        id,
+        ownerId: user.id,
+      },
+    });
+
+    if (!bucket) {
+      return res.status(404).json({ error: 'Bucket not found' });
+    }
+
+    const updatedConfigs = [...value.map(async (configItem) => {
+      return prisma.bucketConfig.upsert({
+        where: {
+          bucketId_key: {
+            bucketId: bucket.id,
+            key: configItem.key,
+          },
+        },
+        update: {
+          value: configItem.value,
+        },
+        create: {
+          bucketId: bucket.id,
+          key: configItem.key,
+          value: configItem.value,
+          type: configItem.type as $Enums.ConfigType
+        },
+      });
+    })];
+
+    const results = await Promise.all(updatedConfigs);
+
+    res.json(results.map((config) => ({
+      bucketId: config.bucketId,
+      key: config.key,
+      value: config.value,
+      type: config.type,
+    } satisfies Config.BucketConfigItem)));
+  } catch (error) {
+    console.error('Error bulk updating bucket config:', error);
+    res.status(500).json({ error: 'Failed to bulk update bucket config' });
+  }
+})
 
 export default router;

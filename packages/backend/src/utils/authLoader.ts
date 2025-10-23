@@ -3,12 +3,6 @@ import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { User, AuthTokens } from '@prisma/client';
 
-// Extend Express Request type to include authenticated user data
-export interface AuthenticatedRequest extends Request {
-    user: User;
-    token: AuthTokens;
-}
-
 export async function AuthUser(token?: string) {
     if (!token || token === undefined) return null;
 
@@ -48,8 +42,7 @@ export async function AuthLoader(
     }
     
     // Attach user and token data to request
-    (req as AuthenticatedRequest).user = authData.user;
-    (req as AuthenticatedRequest).token = authData.token;
+    req.user = authData;
     
     next();
 }

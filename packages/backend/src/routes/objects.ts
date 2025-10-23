@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../index';
 import Joi from 'joi';
-import { AuthLoader, AuthenticatedRequest } from '../utils/authLoader';
+import { AuthLoader } from '../utils/authLoader';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
@@ -40,15 +40,17 @@ const createFolderSchema = Joi.object({
 // GET /api/objects/:bucketId - Get all objects in a bucket (root level or specific folder)
 router.get('/:bucketId', AuthLoader, async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user;
     const { bucketId } = req.params;
     const { parentId } = req.query;
+
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // Verify bucket belongs to user
     const bucket = await prisma.bucket.findFirst({
       where: {
         id: bucketId,
-        ownerId: user.id,
+        ownerId: user.user.id,
       },
     });
 
@@ -100,12 +102,12 @@ router.get('/:bucketId', AuthLoader, async (req: Request, res: Response) => {
 // POST /api/objects/file - Create a new empty file
 router.post('/file', AuthLoader, async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user
     const { error, value } = createFolderSchema.validate(req.body); // Use same schema
 
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
-    }
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
     const { bucketId, filename, parentId } = value;
 
@@ -113,7 +115,7 @@ router.post('/file', AuthLoader, async (req: Request, res: Response) => {
     const bucket = await prisma.bucket.findFirst({
       where: {
         id: bucketId,
-        ownerId: user.id,
+        ownerId: user.user.id,
       },
     });
 
@@ -158,8 +160,10 @@ router.post('/file', AuthLoader, async (req: Request, res: Response) => {
 // POST /api/objects/folder - Create a new folder
 router.post('/folder', AuthLoader, async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user
     const { error, value } = createFolderSchema.validate(req.body);
+
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     if (error) {
       return res.status(400).json({ error: error.details[0].message });
@@ -171,7 +175,7 @@ router.post('/folder', AuthLoader, async (req: Request, res: Response) => {
     const bucket = await prisma.bucket.findFirst({
       where: {
         id: bucketId,
-        ownerId: user.id,
+        ownerId: user.user.id,
       },
     });
 
@@ -204,7 +208,7 @@ router.post('/folder', AuthLoader, async (req: Request, res: Response) => {
       },
     });
 
-      // No physical folder creation. Folders are database-only.
+    // No physical folder creation. Folders are database-only.
 
     res.status(201).json({
       id: folder.id,
@@ -226,9 +230,11 @@ router.post('/folder', AuthLoader, async (req: Request, res: Response) => {
 // POST /api/objects/upload - Upload a file
 router.post('/upload', AuthLoader, upload.single('file'), async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user;
     const { bucketId, parentId } = req.body;
     const file = req.file;
+
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     if (!file) {
       return res.status(400).json({ error: 'No file provided' });
@@ -238,7 +244,7 @@ router.post('/upload', AuthLoader, upload.single('file'), async (req: Request, r
     const bucket = await prisma.bucket.findFirst({
       where: {
         id: bucketId,
-        ownerId: user.id,
+        ownerId: user.user.id,
       },
       include: {
         owner: true,
@@ -263,7 +269,7 @@ router.post('/upload', AuthLoader, upload.single('file'), async (req: Request, r
       const quotaLimit = Number(bucket.storageQuota);
 
       if (usedStorage + file.size > quotaLimit) {
-        await fs.unlink(file.path).catch(() => {}); // Clean up temp file
+        await fs.unlink(file.path).catch(() => { }); // Clean up temp file
         return res.status(413).json({
           error: 'Bucket storage quota exceeded',
           quota: quotaLimit,
@@ -278,7 +284,7 @@ router.post('/upload', AuthLoader, upload.single('file'), async (req: Request, r
       const currentUsage = await prisma.object.aggregate({
         where: {
           bucket: {
-            ownerId: user.id,
+            ownerId: user.user.id,
           },
           mimeType: { not: 'folder' },
         },
@@ -289,7 +295,7 @@ router.post('/upload', AuthLoader, upload.single('file'), async (req: Request, r
       const quotaLimit = Number(bucket.owner.storageQuota);
 
       if (usedStorage + file.size > quotaLimit) {
-        await fs.unlink(file.path).catch(() => {}); // Clean up temp file
+        await fs.unlink(file.path).catch(() => { }); // Clean up temp file
         return res.status(413).json({
           error: 'User storage quota exceeded',
           quota: quotaLimit,
@@ -335,9 +341,11 @@ router.post('/upload', AuthLoader, upload.single('file'), async (req: Request, r
 // PUT /api/objects/:id - Rename an object
 router.put('/:id', AuthLoader, async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user;
     const { id } = req.params;
     const { filename } = req.body;
+
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     if (!filename || !filename.trim()) {
       return res.status(400).json({ error: 'Filename is required' });
@@ -349,7 +357,7 @@ router.put('/:id', AuthLoader, async (req: Request, res: Response) => {
       include: { bucket: true },
     });
 
-    if (!object || object.bucket.ownerId !== user.id) {
+    if (!object || object.bucket.ownerId !== user.user.id) {
       return res.status(404).json({ error: 'Object not found' });
     }
 
@@ -389,8 +397,10 @@ router.put('/:id', AuthLoader, async (req: Request, res: Response) => {
 // DELETE /api/objects/:id - Delete an object (file or folder)
 router.delete('/:id', AuthLoader, async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user;
     const { id } = req.params;
+
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // Get object and verify ownership through bucket
     const object = await prisma.object.findFirst({
@@ -398,7 +408,7 @@ router.delete('/:id', AuthLoader, async (req: Request, res: Response) => {
       include: { bucket: true },
     });
 
-    if (!object || object.bucket.ownerId !== user.id) {
+    if (!object || object.bucket.ownerId !== user.user.id) {
       return res.status(404).json({ error: 'Object not found' });
     }
 
@@ -425,8 +435,10 @@ router.delete('/:id', AuthLoader, async (req: Request, res: Response) => {
 // GET /api/objects/:id/content - Get file content for viewing
 router.get('/:id/content', AuthLoader, async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user;
     const { id } = req.params;
+
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // Get object and verify ownership
     const object = await prisma.object.findFirst({
@@ -434,7 +446,7 @@ router.get('/:id/content', AuthLoader, async (req: Request, res: Response) => {
       include: { bucket: true },
     });
 
-    if (!object || object.bucket.ownerId !== user.id) {
+    if (!object || object.bucket.ownerId !== user.user.id) {
       return res.status(404).json({ error: 'Object not found' });
     }
 
@@ -443,7 +455,7 @@ router.get('/:id/content', AuthLoader, async (req: Request, res: Response) => {
     }
 
     const filePath = await getObjectPath(object.bucket.name, object.id);
-    
+
     // For binary files (images, videos, etc.), send as blob with correct content type
     if (object.mimeType.startsWith('image/') || object.mimeType.startsWith('video/') || object.mimeType.startsWith('audio/')) {
       res.setHeader('Content-Type', object.mimeType);
@@ -452,7 +464,7 @@ router.get('/:id/content', AuthLoader, async (req: Request, res: Response) => {
     } else {
       // For text files, send as text
       const content = await fs.readFile(filePath, 'utf-8');
-      res.json({ 
+      res.json({
         filename: object.filename,
         mimeType: object.mimeType,
         content,
@@ -467,9 +479,11 @@ router.get('/:id/content', AuthLoader, async (req: Request, res: Response) => {
 // PUT /api/objects/:id/content - Save file content
 router.put('/:id/content', AuthLoader, async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user;
     const { id } = req.params;
     const { content } = req.body;
+
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     if (content === undefined) {
       return res.status(400).json({ error: 'Content is required' });
@@ -481,7 +495,7 @@ router.put('/:id/content', AuthLoader, async (req: Request, res: Response) => {
       include: { bucket: true },
     });
 
-    if (!object || object.bucket.ownerId !== user.id) {
+    if (!object || object.bucket.ownerId !== user.user.id) {
       return res.status(404).json({ error: 'Object not found' });
     }
 
@@ -496,13 +510,13 @@ router.put('/:id/content', AuthLoader, async (req: Request, res: Response) => {
     const stats = await fs.stat(filePath);
     const updatedObject = await prisma.object.update({
       where: { id },
-      data: { 
+      data: {
         size: stats.size,
         updatedAt: new Date(),
       },
     });
 
-    res.json({ 
+    res.json({
       message: 'File saved successfully',
       size: bigIntToNumber(updatedObject.size),
       updatedAt: updatedObject.updatedAt.toISOString(),
@@ -516,8 +530,10 @@ router.put('/:id/content', AuthLoader, async (req: Request, res: Response) => {
 // GET /api/objects/:id/download - Download a file
 router.get('/:id/download', AuthLoader, async (req: Request, res: Response) => {
   try {
-    const { user } = req as AuthenticatedRequest;
+    const user = req.user;
     const { id } = req.params;
+
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // Get object and verify ownership
     const object = await prisma.object.findFirst({
@@ -525,7 +541,7 @@ router.get('/:id/download', AuthLoader, async (req: Request, res: Response) => {
       include: { bucket: true },
     });
 
-    if (!object || object.bucket.ownerId !== user.id) {
+    if (!object || object.bucket.ownerId !== user.user.id) {
       return res.status(404).json({ error: 'Object not found' });
     }
 
