@@ -72,7 +72,7 @@ const navItems: NavItem[] = [
   { text: 'Account', icon: <AccountIcon />, path: '/app/settings/account' },
   { text: 'Security', icon: <LockIcon />, path: '/app/settings/security' },
   { text: 'Storage', icon: <StorageIcon />, path: '/app/settings/storage' },
-  { text: 'Schedule Tasks', icon: <ScheduleIcon />, path: '/app/settings/schedule-tasks', adminOnly: true },
+  { text: 'Scheduled Tasks', icon: <ScheduleIcon />, path: '/app/settings/schedule-tasks', adminOnly: true },
   { text: 'Admin', icon: <AdminIcon />, path: '/app/settings/admin', adminOnly: true },
     ],
   },

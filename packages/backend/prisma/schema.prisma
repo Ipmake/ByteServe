@@ -8,7 +8,7 @@ generator client {
 datasource db {
     provider = "postgresql"
     // Note: This URL is required by Prisma but will be ignored when using the adapter
-    url      = "postgresql://localhost:5432/filegrave"
+    url      = env("DATABASE_URL")
 }
 
 model Config {

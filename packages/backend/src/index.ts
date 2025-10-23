@@ -13,16 +13,8 @@ import { createClient as createRedisClient } from "redis";
 
 dotenv.config();
 
-const pgliteClient = new PGlite('./data', {
-  extensions: {
-    live
-  }
-});
-
-const adapter = new PrismaPGlite(pgliteClient);
-
 // Create Prisma client with the adapter
-const prisma = new PrismaClient({ adapter: adapter as any });
+const prisma = new PrismaClient({ });
 
 const redis = createRedisClient({
   url: process.env.REDIS_CONNECTION_STRING
@@ -71,7 +63,7 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
-export { app, prisma, pgliteClient, redis };
+export { app, prisma, redis };
 
 startServer(PORT).catch((err) => {
   console.error('Error starting server:', err);
