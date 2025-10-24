@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Typography,
   Box,
@@ -24,7 +24,7 @@ import {
   FormControl,
   InputLabel,
   LinearProgress,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -33,11 +33,17 @@ import {
   Lock as LockIcon,
   Public as PublicIcon,
   LockOpen as LockOpenIcon,
-} from '@mui/icons-material';
-import { apiService } from '../../api';
-import { useNavigate } from 'react-router-dom';
-import QuotaInput from '../../components/QuotaInput';
-import { formatBytes, calculateQuotaPercentage, getQuotaColor } from '../../utils/format';
+  Checklist,
+} from "@mui/icons-material";
+import { apiService } from "../../api";
+import { useNavigate } from "react-router-dom";
+import QuotaInput from "../../components/QuotaInput";
+import {
+  formatBytes,
+  calculateQuotaPercentage,
+  getQuotaColor,
+} from "../../utils/format";
+import BucketConfigDrawer from "../../components/BucketConfigDrawer";
 
 export default function BucketsPage() {
   const navigate = useNavigate();
@@ -45,15 +51,21 @@ export default function BucketsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [bucketName, setBucketName] = useState('');
-  const [bucketAccess, setBucketAccess] = useState<'private' | 'public-read' | 'public-write'>('private');
+  const [bucketName, setBucketName] = useState("");
+  const [bucketAccess, setBucketAccess] = useState<
+    "private" | "public-read" | "public-write"
+  >("private");
   const [bucketQuota, setBucketQuota] = useState<number>(-1); // -1 for unlimited
-  const [editingBucket, setEditingBucket] = useState<Models.BucketPublic | null>(null);
+  const [editingBucket, setEditingBucket] =
+    useState<Models.BucketPublic | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [bucketToDelete, setBucketToDelete] = useState<Models.BucketPublic | null>(null);
+  const [bucketToDelete, setBucketToDelete] =
+    useState<Models.BucketPublic | null>(null);
   const [nameCheckLoading, setNameCheckLoading] = useState(false);
   const [nameAvailable, setNameAvailable] = useState<boolean | null>(null);
   const [nameCheckError, setNameCheckError] = useState<string | null>(null);
+
+  const [bucketConfigOpen, setBucketConfigOpen] = useState<string | null>(null); // bucket ID or null
 
   useEffect(() => {
     fetchBuckets();
@@ -62,19 +74,22 @@ export default function BucketsPage() {
   const fetchBuckets = async () => {
     setLoading(true);
     setError(null);
+    setBucketConfigOpen(null);
     try {
       const data = await apiService.getBuckets();
       setBuckets(data);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to fetch buckets');
+      setError(
+        err.response?.data?.error || err.message || "Failed to fetch buckets"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleOpenCreate = () => {
-    setBucketName('');
-    setBucketAccess('private');
+    setBucketName("");
+    setBucketAccess("private");
     setBucketQuota(-1);
     setEditingBucket(null);
     setNameAvailable(null);
@@ -95,8 +110,8 @@ export default function BucketsPage() {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setBucketName('');
-    setBucketAccess('private');
+    setBucketName("");
+    setBucketAccess("private");
     setBucketQuota(-1);
     setEditingBucket(null);
     setNameAvailable(null);
@@ -121,7 +136,7 @@ export default function BucketsPage() {
     // Validate format first
     if (!/^[a-z0-9-]+$/.test(bucketName.toLowerCase())) {
       setNameAvailable(false);
-      setNameCheckError('Only lowercase letters, numbers, and hyphens allowed');
+      setNameCheckError("Only lowercase letters, numbers, and hyphens allowed");
       return;
     }
 
@@ -132,7 +147,7 @@ export default function BucketsPage() {
         setNameAvailable(data.available);
         setNameCheckError(data.reason || null);
       } catch (err) {
-        console.error('Error checking bucket name:', err);
+        console.error("Error checking bucket name:", err);
       } finally {
         setNameCheckLoading(false);
       }
@@ -146,20 +161,26 @@ export default function BucketsPage() {
 
   const handleSubmit = async () => {
     if (!bucketName.trim()) {
-      setError('Bucket name is required');
+      setError("Bucket name is required");
       return;
     }
 
     // Validate bucket name format
     if (!/^[a-z0-9-]+$/.test(bucketName.toLowerCase())) {
-      setError('Bucket name must contain only lowercase letters, numbers, and hyphens');
+      setError(
+        "Bucket name must contain only lowercase letters, numbers, and hyphens"
+      );
       return;
     }
 
     try {
       if (editingBucket) {
         // Update existing bucket
-        const updates: { name?: string; access?: 'private' | 'public-read' | 'public-write'; storageQuota?: number } = {};
+        const updates: {
+          name?: string;
+          access?: "private" | "public-read" | "public-write";
+          storageQuota?: number;
+        } = {};
         if (bucketName.toLowerCase() !== editingBucket.name) {
           updates.name = bucketName.toLowerCase();
         }
@@ -174,23 +195,31 @@ export default function BucketsPage() {
         }
       } else {
         // Create new bucket
-        await apiService.createBucket(bucketName.toLowerCase(), bucketAccess, bucketQuota);
+        await apiService.createBucket(
+          bucketName.toLowerCase(),
+          bucketAccess,
+          bucketQuota
+        );
       }
-      
+
       handleCloseDialog();
       fetchBuckets();
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || `Failed to ${editingBucket ? 'update' : 'create'} bucket`);
+      setError(
+        err.response?.data?.error ||
+          err.message ||
+          `Failed to ${editingBucket ? "update" : "create"} bucket`
+      );
     }
   };
 
   const getAccessIcon = (access: string) => {
     switch (access) {
-      case 'private':
+      case "private":
         return <LockIcon fontSize="small" />;
-      case 'public-read':
+      case "public-read":
         return <PublicIcon fontSize="small" />;
-      case 'public-write':
+      case "public-write":
         return <LockOpenIcon fontSize="small" />;
       default:
         return <LockIcon fontSize="small" />;
@@ -199,12 +228,12 @@ export default function BucketsPage() {
 
   const getAccessLabel = (access: string) => {
     switch (access) {
-      case 'private':
-        return 'Private';
-      case 'public-read':
-        return 'Public Read';
-      case 'public-write':
-        return 'Public Write';
+      case "private":
+        return "Private";
+      case "public-read":
+        return "Public Read";
+      case "public-write":
+        return "Public Write";
       default:
         return access;
     }
@@ -224,14 +253,23 @@ export default function BucketsPage() {
       setBucketToDelete(null);
       fetchBuckets();
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to delete bucket');
+      setError(
+        err.response?.data?.error || err.message || "Failed to delete bucket"
+      );
       setDeleteConfirmOpen(false);
     }
   };
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h4">Buckets</Typography>
         <Button
           variant="contained"
@@ -249,11 +287,11 @@ export default function BucketsPage() {
       )}
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>
       ) : buckets.length === 0 ? (
-        <Paper sx={{ py: 8, textAlign: 'center' }}>
+        <Paper sx={{ py: 8, textAlign: "center" }}>
           <Typography variant="h6" gutterBottom color="text.secondary">
             No buckets yet
           </Typography>
@@ -287,11 +325,15 @@ export default function BucketsPage() {
                 <TableRow
                   key={bucket.id}
                   hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/app/buckets/${bucket.id}`, { state: { bucketName: bucket.name } })}
+                  sx={{ cursor: "pointer" }}
+                  onClick={() =>
+                    navigate(`/app/buckets/${bucket.id}`, {
+                      state: { bucketName: bucket.name },
+                    })
+                  }
                 >
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <FolderOpenIcon color="primary" />
                       <Typography variant="body1" fontWeight={500}>
                         {bucket.name}
@@ -303,16 +345,24 @@ export default function BucketsPage() {
                       icon={getAccessIcon(bucket.access)}
                       label={getAccessLabel(bucket.access)}
                       size="small"
-                      color={bucket.access === 'private' ? 'default' : 'success'}
+                      color={
+                        bucket.access === "private" ? "default" : "success"
+                      }
                       variant="outlined"
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={bucket.objectCount === 0 ? 'Empty' : `${bucket.objectCount} object${bucket.objectCount !== 1 ? 's' : ''}`}
+                      label={
+                        bucket.objectCount === 0
+                          ? "Empty"
+                          : `${bucket.objectCount} object${
+                              bucket.objectCount !== 1 ? "s" : ""
+                            }`
+                      }
                       size="small"
                       variant="outlined"
-                      color={bucket.objectCount > 0 ? 'primary' : 'default'}
+                      color={bucket.objectCount > 0 ? "primary" : "default"}
                     />
                   </TableCell>
                   <TableCell>
@@ -328,46 +378,79 @@ export default function BucketsPage() {
                         </Box>
                       ) : (
                         <Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              mb: 0.5,
+                            }}
+                          >
                             <Typography variant="body2" fontWeight={500}>
                               {formatBytes(bucket.usedStorage || 0)}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               / {formatBytes(bucket.storageQuota)}
                             </Typography>
                           </Box>
                           <LinearProgress
                             variant="determinate"
-                            value={calculateQuotaPercentage(bucket.usedStorage || 0, bucket.storageQuota)}
-                            color={getQuotaColor(calculateQuotaPercentage(bucket.usedStorage || 0, bucket.storageQuota))}
+                            value={calculateQuotaPercentage(
+                              bucket.usedStorage || 0,
+                              bucket.storageQuota
+                            )}
+                            color={getQuotaColor(
+                              calculateQuotaPercentage(
+                                bucket.usedStorage || 0,
+                                bucket.storageQuota
+                              )
+                            )}
                             sx={{ height: 6, borderRadius: 1 }}
                           />
                           <Typography variant="caption" color="text.secondary">
-                            {calculateQuotaPercentage(bucket.usedStorage || 0, bucket.storageQuota)}% used
+                            {calculateQuotaPercentage(
+                              bucket.usedStorage || 0,
+                              bucket.storageQuota
+                            )}
+                            % used
                           </Typography>
                         </Box>
                       )}
                     </Box>
                   </TableCell>
                   <TableCell>
-                    {new Date(bucket.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
+                    {new Date(bucket.createdAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
                   </TableCell>
                   <TableCell>
-                    {new Date(bucket.updatedAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
+                    {new Date(bucket.updatedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
                   </TableCell>
                   <TableCell align="right">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+
+                        setBucketConfigOpen(bucket.id)
+                      }}
+                      title="Edit bucket config"
+                    >
+                      <Checklist />
+                    </IconButton>
                     <IconButton
                       size="small"
                       onClick={(e) => handleOpenEdit(bucket, e)}
@@ -395,8 +478,15 @@ export default function BucketsPage() {
       )}
 
       {/* Create/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingBucket ? 'Edit Bucket' : 'Create New Bucket'}</DialogTitle>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {editingBucket ? "Edit Bucket" : "Create New Bucket"}
+        </DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -406,7 +496,7 @@ export default function BucketsPage() {
             fullWidth
             variant="outlined"
             value={bucketName}
-            onChange={(e) =>  {
+            onChange={(e) => {
               let value = e.target.value.toLowerCase();
 
               value = value.replaceAll(" ", "-").slice(0, 64); // Limit length to 64 characters
@@ -416,12 +506,12 @@ export default function BucketsPage() {
             error={nameAvailable === false}
             helperText={
               nameCheckLoading
-                ? 'Checking availability...'
+                ? "Checking availability..."
                 : nameAvailable === false
-                ? nameCheckError || 'This bucket name is not available'
+                ? nameCheckError || "This bucket name is not available"
                 : nameAvailable === true
-                ? '✓ This name is available'
-                : 'Lowercase letters, numbers, and hyphens only'
+                ? "✓ This name is available"
+                : "Lowercase letters, numbers, and hyphens only"
             }
             sx={{ mt: 2 }}
             InputProps={{
@@ -435,13 +525,19 @@ export default function BucketsPage() {
             <Select
               value={bucketAccess}
               label="Access Control"
-              onChange={(e) => setBucketAccess(e.target.value as 'private' | 'public-read' | 'public-write')}
+              onChange={(e) =>
+                setBucketAccess(
+                  e.target.value as "private" | "public-read" | "public-write"
+                )
+              }
             >
               <MenuItem value="private">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <LockIcon fontSize="small" />
                   <Box>
-                    <Typography variant="body2" fontWeight={500}>Private</Typography>
+                    <Typography variant="body2" fontWeight={500}>
+                      Private
+                    </Typography>
                     <Typography variant="caption" color="text.secondary">
                       Only you can access
                     </Typography>
@@ -449,10 +545,12 @@ export default function BucketsPage() {
                 </Box>
               </MenuItem>
               <MenuItem value="public-read">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <PublicIcon fontSize="small" />
                   <Box>
-                    <Typography variant="body2" fontWeight={500}>Public Read</Typography>
+                    <Typography variant="body2" fontWeight={500}>
+                      Public Read
+                    </Typography>
                     <Typography variant="caption" color="text.secondary">
                       Anyone can view files
                     </Typography>
@@ -460,10 +558,12 @@ export default function BucketsPage() {
                 </Box>
               </MenuItem>
               <MenuItem value="public-write">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <LockOpenIcon fontSize="small" />
                   <Box>
-                    <Typography variant="body2" fontWeight={500}>Public Write</Typography>
+                    <Typography variant="body2" fontWeight={500}>
+                      Public Write
+                    </Typography>
                     <Typography variant="caption" color="text.secondary">
                       Anyone can upload/modify
                     </Typography>
@@ -483,37 +583,55 @@ export default function BucketsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             variant="contained"
             disabled={
-              !bucketName.trim() || 
-              nameCheckLoading || 
-              (nameAvailable === false && (!editingBucket || bucketName.toLowerCase() !== editingBucket.name))
+              !bucketName.trim() ||
+              nameCheckLoading ||
+              (nameAvailable === false &&
+                (!editingBucket ||
+                  bucketName.toLowerCase() !== editingBucket.name))
             }
           >
-            {editingBucket ? 'Update' : 'Create'}
+            {editingBucket ? "Update" : "Create"}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+      >
         <DialogTitle>Delete Bucket?</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the bucket <strong>"{bucketToDelete?.name}"</strong>?
+            Are you sure you want to delete the bucket{" "}
+            <strong>"{bucketToDelete?.name}"</strong>?
             <br />
-            This action cannot be undone and will delete all objects in the bucket.
+            This action cannot be undone and will delete all objects in the
+            bucket.
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+          >
             Delete
           </Button>
         </DialogActions>
       </Dialog>
+
+      <BucketConfigDrawer
+        bucketId={bucketConfigOpen}
+        onClose={() => {
+          setBucketConfigOpen(null);
+        }}
+      />
     </Box>
   );
 }

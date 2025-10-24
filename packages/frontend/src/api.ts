@@ -109,7 +109,7 @@ export const apiService = {
 
     updateBucketConfigItemsBulk: async (bucketId: string, items: Array<{ key: string; value: string, type?: 'STRING' | 'NUMBER' | 'BOOLEAN' }>) => {
         const token = getAuthToken();
-        const response = await api.put<Config.BucketConfigItem[]>(`/buckets/${bucketId}/config`, { configs: items }, {
+        const response = await api.put<Config.BucketConfigItem[]>(`/buckets/${bucketId}/config`, items, {
             headers: { Authorization: token }
         });
         return response.data;

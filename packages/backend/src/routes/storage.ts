@@ -33,6 +33,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     // Get bucket
     const bucket = await prisma.bucket.findFirst({
       where: { name: bucketName },
+      include: { BucketConfig: true },
     });
 
     if (!bucket) {
@@ -65,7 +66,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
         objects: objects.map(obj => ({
           filename: obj.filename,
           isFolder: obj.mimeType === 'folder',
-          size: obj.size,
+          size: Number(obj.size),
           mimeType: obj.mimeType,
           updatedAt: obj.updatedAt.toISOString(),
         })),
@@ -73,7 +74,10 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     }
 
     // Resolve path to object
-    const object = await resolvePath(bucketName, pathSegments);
+    const object = await resolvePath(bucketName, pathSegments, {
+      enabled: bucket.BucketConfig.find(c => c.key === 'cache_path_caching_enable')?.value === 'true',
+      ttl: parseInt(bucket.BucketConfig.find(c => c.key === 'cache_path_caching_ttl_seconds')?.value || '300', 10),
+    });
 
     if (!object) {
       return res.status(404).json({ error: 'File or folder not found' });
@@ -101,7 +105,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
         objects: children.map(obj => ({
           filename: obj.filename,
           isFolder: obj.mimeType === 'folder',
-          size: obj.size,
+          size: Number(obj.size),
           mimeType: obj.mimeType,
           updatedAt: obj.updatedAt.toISOString(),
         })),

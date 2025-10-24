@@ -211,7 +211,7 @@ router.post('/', AuthLoader, async (req, res: Response) => {
         ownerId: user.id,
         BucketConfig: {
           create: [
-            { key: 'versioning', value: 'false', type: $Enums.ConfigType.BOOLEAN },
+            // { key: 'versioning', value: 'false', type: $Enums.ConfigType.BOOLEAN },
             { key: 'cache_path_caching_enable', value: 'false', type: $Enums.ConfigType.BOOLEAN },
             { key: 'cache_path_caching_ttl_seconds', value: '300', type: $Enums.ConfigType.NUMBER },
           ]
