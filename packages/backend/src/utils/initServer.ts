@@ -17,6 +17,20 @@ export async function Init() {
         }
     }
 
+    await prisma.$transaction([
+        prisma.$executeRawUnsafe(`
+            DROP INDEX IF EXISTS "Object_bucketId_parentId_filename_key";
+        `),
+        prisma.$executeRawUnsafe(`
+            CREATE UNIQUE INDEX "Object_bucketId_parentId_filename_key"
+            ON public."Object" (
+                "bucketId",
+                COALESCE("parentId", '__NULL__'),
+                "filename"
+            );
+        `)
+    ]);
+
     console.log("Start Database checks: ")
 
     process.stdout.write("\n")

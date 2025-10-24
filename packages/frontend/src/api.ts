@@ -407,6 +407,20 @@ export const apiService = {
         });
         return response.data;
     },
+
+    // File Requests
+    createFileRequest: async (data: {
+        bucket: string;
+        parent: string | null;
+        filename?: string;
+        requireApiKey: boolean;
+     }) => {
+        const token = getAuthToken();
+        const response = await api.post<FileReq.FileRequest>('/filereq', data, {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
 };
 
 export default api;

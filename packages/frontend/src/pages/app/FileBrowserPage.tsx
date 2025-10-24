@@ -44,6 +44,7 @@ import { apiService } from "../../api";
 import { useTransferStore } from "../../store/transferStore";
 import { TableVirtuoso } from "react-virtuoso";
 import { useAuthStore } from "../../states/authStore";
+import FileReqModal from "../../components/FileReqModal";
 
 export default function FileBrowserPage() {
   const { bucketId } = useParams<{ bucketId: string }>();
@@ -84,6 +85,9 @@ export default function FileBrowserPage() {
 
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+
+  const [createFileReqDialogOpen, setCreateFileReqDialogOpen] = useState(false);
+  const [fileReqCmd, setFileReqCmd] = useState<string | null>(null);
 
   const [uploadMenuAnchorEl, setUploadMenuAnchorEl] =
     useState<null | HTMLElement>(null);
@@ -582,9 +586,11 @@ export default function FileBrowserPage() {
               aria-haspopup="true"
               onClick={(e) => setUploadMenuAnchorEl(e.currentTarget)}
             >
-              <ChevronLeft sx={{
-                transform: "rotate(-90deg)"
-              }} />
+              <ChevronLeft
+                sx={{
+                  transform: "rotate(-90deg)",
+                }}
+              />
             </Button>
             {/* Dropdown Menu */}
             <Menu
@@ -604,7 +610,7 @@ export default function FileBrowserPage() {
               <MenuItem
                 onClick={() => {
                   setUploadMenuAnchorEl(null);
-                  setCreateFileOpen(true);
+                  setCreateFileReqDialogOpen(true);
                 }}
               >
                 Create File Request
@@ -827,7 +833,6 @@ export default function FileBrowserPage() {
                     {!object.isFolder && (
                       <IconButton
                         size="small"
-                        color="primary"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDownload(object);
@@ -1076,6 +1081,74 @@ export default function FileBrowserPage() {
           <Button onClick={() => setShareDialogOpen(false)}>Close</Button>
           <Button onClick={handleCopyLink} variant="contained">
             Copy Link
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* File Request Dialog */}
+      <FileReqModal
+        open={createFileReqDialogOpen}
+        onClose={(fileReqId) => {
+          setCreateFileReqDialogOpen(false);
+          if (fileReqId) {
+            setFileReqCmd(
+              `curl ${document.location.protocol}//${document.location.host}/api/filereq/${fileReqId}/sh | bash -s -- --file myfile.png`
+            );
+          }
+        }}
+        bucketId={bucketId!}
+        parentId={currentFolderId || null}
+      />
+
+      <Dialog
+        open={Boolean(fileReqCmd)}
+        onClose={() => setFileReqCmd(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Upload File using FileRequest</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Use this command to upload files via FileRequest:
+          </Typography>
+
+          <Typography variant="body2" color="error.main" sx={{ mb: 2 }}>
+            If you enabled require api key, make sure to append "--api-key
+            YOUR_API_KEY" to the command. <br />
+            The file request will expire in 30 minutes after creation. <br />
+            Replace "myfile.png" with your actual file name when uploading. If
+            you specified a different filename when creating the file request,
+            the final uploaded file will use that name instead. Otherwise it
+            will use the name you provide with the --file argument.
+          </Typography>
+          <TextField
+            fullWidth
+            variant="outlined"
+            value={fileReqCmd || ""}
+            slotProps={{
+              input: {
+                readOnly: true,
+              },
+            }}
+            multiline={true}
+            sx={{ mb: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFileReqCmd(null)}>Close</Button>
+          <Button
+            onClick={() => {
+              if (fileReqCmd) {
+                navigator.clipboard
+                  .writeText(fileReqCmd)
+                  .catch((err) => {
+                    console.error("Failed to copy:", err);
+                  });
+              }
+            }}
+            variant="contained"
+          >
+            Copy Command
           </Button>
         </DialogActions>
       </Dialog>
