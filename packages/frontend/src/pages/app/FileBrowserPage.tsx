@@ -23,6 +23,8 @@ import {
   Link,
   Chip,
   Tooltip,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import {
   CreateNewFolder as CreateFolderIcon,
@@ -36,6 +38,7 @@ import {
   Home as HomeIcon,
   Edit as EditIcon,
   Share as ShareIcon,
+  ChevronLeft,
 } from "@mui/icons-material";
 import { apiService } from "../../api";
 import { useTransferStore } from "../../store/transferStore";
@@ -81,6 +84,9 @@ export default function FileBrowserPage() {
 
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+
+  const [uploadMenuAnchorEl, setUploadMenuAnchorEl] =
+    useState<null | HTMLElement>(null);
 
   useEffect(() => {
     if (bucketId) {
@@ -211,7 +217,10 @@ export default function FileBrowserPage() {
 
           xhr.addEventListener("load", () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-              updateTransfer(transferId, { progress: 100, status: "completed" });
+              updateTransfer(transferId, {
+                progress: 100,
+                status: "completed",
+              });
               resolve();
             } else {
               let errorMessage = "Upload failed";
@@ -550,14 +559,58 @@ export default function FileBrowserPage() {
           >
             New File
           </Button>
-          <Button
-            variant="contained"
-            component="label"
-            startIcon={<UploadIcon />}
-          >
-            Upload File(s)
-            <input type="file" hidden multiple onChange={handleFileSelect} />
-          </Button>
+          <Box sx={{ display: "flex" }}>
+            <Button
+              variant="contained"
+              component="label"
+              startIcon={<UploadIcon />}
+              sx={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+            >
+              Upload File(s)
+              <input type="file" hidden multiple onChange={handleFileSelect} />
+            </Button>
+            <Button
+              variant="contained"
+              sx={{
+                minWidth: 40,
+                px: 1,
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                borderLeft: "1px solid rgba(0,0,0,0.12)",
+              }}
+              aria-controls="upload-menu"
+              aria-haspopup="true"
+              onClick={(e) => setUploadMenuAnchorEl(e.currentTarget)}
+            >
+              <ChevronLeft sx={{
+                transform: "rotate(-90deg)"
+              }} />
+            </Button>
+            {/* Dropdown Menu */}
+            <Menu
+              id="upload-menu"
+              anchorEl={uploadMenuAnchorEl}
+              open={Boolean(uploadMenuAnchorEl)}
+              onClose={() => setUploadMenuAnchorEl(null)}
+              anchorOrigin={{
+                vertical: "bottom",
+                horizontal: "right",
+              }}
+              transformOrigin={{
+                vertical: "top",
+                horizontal: "right",
+              }}
+            >
+              <MenuItem
+                onClick={() => {
+                  setUploadMenuAnchorEl(null);
+                  setCreateFileOpen(true);
+                }}
+              >
+                Create File Request
+              </MenuItem>
+            </Menu>
+          </Box>
         </Box>
       </Box>
 
@@ -883,21 +936,29 @@ export default function FileBrowserPage() {
               </Typography>
               <ul style={{ paddingLeft: 18, margin: 0 }}>
                 {selectedFiles.map((file) => (
-                  <li key={file.name} style={{
-                    maxWidth: 600,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    display: 'block',
-                  }}>
-                    <strong style={{
-                      maxWidth: 400,
-                      display: 'inline-block',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      verticalAlign: 'bottom',
-                      whiteSpace: 'nowrap',
-                    }}>{file.name}</strong> ({formatFileSize(file.size)})
+                  <li
+                    key={file.name}
+                    style={{
+                      maxWidth: 600,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      display: "block",
+                    }}
+                  >
+                    <strong
+                      style={{
+                        maxWidth: 400,
+                        display: "inline-block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        verticalAlign: "bottom",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {file.name}
+                    </strong>{" "}
+                    ({formatFileSize(file.size)})
                   </li>
                 ))}
               </ul>
@@ -913,7 +974,11 @@ export default function FileBrowserPage() {
           >
             Cancel
           </Button>
-          <Button onClick={handleUploadFile} variant="contained" disabled={selectedFiles.length === 0}>
+          <Button
+            onClick={handleUploadFile}
+            variant="contained"
+            disabled={selectedFiles.length === 0}
+          >
             Upload
           </Button>
         </DialogActions>

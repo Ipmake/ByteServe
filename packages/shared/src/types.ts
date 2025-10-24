@@ -185,6 +185,18 @@ declare global {
     }
   }
 
+  namespace FileReq {
+    interface FileRequest {
+      id: string;
+      bucket: string;
+      parent: string | null;
+      filename: string | null;
+      userId: string;
+      requireApiKey: boolean;
+      createdAt: number;
+    }
+  }
+
   namespace API {
     // ============================================
     // Generic API Types

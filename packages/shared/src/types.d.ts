@@ -135,6 +135,17 @@ declare global {
             type: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'SELECT';
         }
     }
+    namespace FileReq {
+        interface FileRequest {
+            id: string;
+            bucket: string;
+            parent: string | null;
+            filename: string | null;
+            userId: string;
+            requireApiKey: boolean;
+            createdAt: number;
+        }
+    }
     namespace API {
         interface Error {
             error: string;
