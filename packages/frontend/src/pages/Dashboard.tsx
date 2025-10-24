@@ -72,7 +72,7 @@ function Dashboard() {
         <Toolbar>
           <PeopleIcon sx={{ mr: 2 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            FileGrave - User Management
+            ByteServe - User Management
           </Typography>
           <Typography variant="body2" sx={{ mr: 2 }}>
             {healthStatus}

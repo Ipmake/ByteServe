@@ -36,7 +36,7 @@ function Login() {
       const browserData = bowser.getParser(window.navigator.userAgent);
       const response = await apiService.login(
         username,
-        SHA256(`filegrave${password}filegrave`).toString(),
+        SHA256(`byteserve${password}byteserve`).toString(),
         `${browserData.getBrowserName()} on ${browserData.getOSName()}`.slice(0, 128)
       );
 
@@ -93,7 +93,7 @@ function Login() {
           >
             <FolderIcon sx={{ fontSize: 40, color: "primary.main" }} />
             <Typography variant="h4" component="h1">
-              FileGrave
+              ByteServe
             </Typography>
           </Box>
 

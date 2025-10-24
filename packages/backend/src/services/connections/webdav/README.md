@@ -1,6 +1,6 @@
 # WebDAV Server Implementation
 
-Custom WebDAV server implementation for FileGrave using Express.
+Custom WebDAV server implementation for ByteServe using Express.
 
 ## Structure
 

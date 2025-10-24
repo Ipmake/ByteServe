@@ -50,7 +50,7 @@ export async function verifyDigestAuth(req: express.Request): Promise<WebDAVUser
     }
     
     // Calculate expected response for Digest auth
-    const ha1 = md5(`${username}:FileGrave WebDAV:${credential.password}`);
+    const ha1 = md5(`${username}:ByteServe WebDAV:${credential.password}`);
     const ha2 = md5(`${req.method}:${authParams.uri}`);
     
     let expectedResponse;
@@ -78,7 +78,7 @@ export function sendAuthChallenge(res: express.Response) {
     const opaque = crypto.randomBytes(16).toString('hex');
     
     res.setHeader('WWW-Authenticate', 
-        `Digest realm="FileGrave WebDAV", qop="auth", nonce="${nonce}", opaque="${opaque}"`
+        `Digest realm="ByteServe WebDAV", qop="auth", nonce="${nonce}", opaque="${opaque}"`
     );
     res.status(401).send('Unauthorized');
 }

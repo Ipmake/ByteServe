@@ -49,6 +49,6 @@ export async function AuthLoader(
 
 export function HashPW(password: string) {
     return crypto.createHash('sha256')
-        .update(`filegrave${password}filegrave`)
+        .update(`byteserve${password}byteserve`)
         .digest('hex');
 }

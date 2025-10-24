@@ -125,7 +125,7 @@ export default function AppLayout() {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Toolbar>
         <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
-          FileGrave
+          ByteServe
         </Typography>
       </Toolbar>
       <Divider />
@@ -346,7 +346,7 @@ export default function AppLayout() {
                   if (child) return `${item.text} - ${child.text}`;
                 }
               }
-              return 'FileGrave';
+              return 'ByteServe';
             })()}
           </Typography>
         </Toolbar>

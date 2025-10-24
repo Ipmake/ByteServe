@@ -78,7 +78,7 @@ export default function SettingsPage() {
     try {
       // Hash passwords on the client side
       const hashPassword = (password: string) => {
-        return SHA256(`filegrave${password}filegrave`).toString();
+        return SHA256(`byteserve${password}byteserve`).toString();
       };
 
       const currentPasswordHash = hashPassword(currentPassword);

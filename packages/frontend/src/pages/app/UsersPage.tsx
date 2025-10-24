@@ -124,7 +124,7 @@ export default function UsersPage() {
       };
       
       if (password) {
-        userData.password = SHA256(`filegrave${password}filegrave`).toString();
+        userData.password = SHA256(`byteserve${password}byteserve`).toString();
       }
 
       if (editingUser) {

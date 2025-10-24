@@ -1,11 +1,11 @@
-# FileGrave - TypeScript Monorepo
+# ByteServe - TypeScript Monorepo
 
 A modern TypeScript monorepo project with Express + Prisma backend and React + Material-UI frontend.
 
 ## 🏗️ Project Structure
 
 ```
-FileGrave/
+ByteServe/
 ├── packages/
 │   ├── backend/          # Express + Prisma API
 │   │   ├── src/
@@ -81,7 +81,7 @@ cp .env.example .env
 
 Edit `packages/backend/.env` with your database credentials:
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/filegrave?schema=public"
+DATABASE_URL="postgresql://user:password@localhost:5432/byteserve?schema=public"
 PORT=3001
 NODE_ENV=development
 ```
