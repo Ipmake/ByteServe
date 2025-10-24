@@ -32,6 +32,7 @@ import QuotaInput from '../../components/QuotaInput';
 import { SHA256 } from 'crypto-js';
 import { formatBytes } from '../../utils/format';
 import { apiService } from '../../api';
+import moment from 'moment';
 
 interface User {
   id: string;
@@ -228,11 +229,7 @@ export default function UsersPage() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    {new Date(user.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
+                    {moment(user.createdAt).format("LLLL")}
                   </TableCell>
                   <TableCell align="right">
                     <IconButton

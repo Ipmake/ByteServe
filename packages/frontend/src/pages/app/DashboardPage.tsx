@@ -34,6 +34,7 @@ import {
   getQuotaColor,
 } from "../../utils/format";
 import { apiService } from "../../api";
+import moment from "moment";
 
 interface DashboardStats {
   totalBuckets: number;
@@ -295,7 +296,7 @@ export default function Dashboard() {
                     </TableCell>
                     <TableCell align="right">{bucket.objectCount}</TableCell>
                     <TableCell>
-                      {new Date(bucket.createdAt).toLocaleDateString()}
+                      {moment(bucket.createdAt).format("LLLL")}
                     </TableCell>
                   </TableRow>
                 ))}
