@@ -146,6 +146,20 @@ declare global {
             createdAt: number;
         }
     }
+    namespace Worker {
+        interface WorkerRequest {
+            headers: Record<string, string>;
+            method: string;
+            params: Record<string, string>;
+            query: Record<string, string>;
+            body: any;
+        }
+        interface WorkerResponse {
+            status: number;
+            body: any;
+            headers?: Record<string, string>;
+        }
+    }
     namespace API {
         interface Error {
             error: string;

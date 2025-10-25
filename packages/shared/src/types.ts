@@ -197,6 +197,22 @@ declare global {
     }
   }
 
+  namespace Worker {
+    interface WorkerRequest {
+      headers: Record<string, string>; // HTTP headers
+      method: string;                 // HTTP method (GET, POST, etc.)
+      params: Record<string, string>; // URL parameters
+      query: Record<string, string>;  // Query parameters
+      body: any;                      // Request body
+    }
+
+    interface WorkerResponse {
+      status: number; // HTTP status code
+      body: any;   // Response body
+      headers?: Record<string, string>; // Optional headers
+    }
+  }
+
   namespace API {
     // ============================================
     // Generic API Types

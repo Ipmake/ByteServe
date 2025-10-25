@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../index';
+import { prisma, workerPool } from '../index';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import mime from 'mime-types';
 import { getObjectPath, resolvePath } from '../common/object-nesting';
+import { ExpressRequestToWorkerRequest } from '../common/object';
 
 const router = Router();
 
@@ -25,113 +26,17 @@ const upload = multer({ storage });
 
 // GET /api/storage/:bucketName/* - Public file access
 router.get('/:bucketName/*', async (req: Request, res: Response) => {
-  try {
-    const { bucketName } = req.params;
-    const filePath = req.params[0] || ''; // Everything after bucketName
-    const pathSegments = filePath.split('/').filter(s => s.length > 0);
+  const workerResponse: Worker.WorkerResponse = await workerPool.run(ExpressRequestToWorkerRequest(req), {
+    name: 'StorageWorker_PublicFileAccess',
+  });
 
-    // Get bucket
-    const bucket = await prisma.bucket.findFirst({
-      where: { name: bucketName },
-      include: { BucketConfig: true },
-    });
-
-    if (!bucket) {
-      return res.status(404).json({ error: 'Bucket not found' });
+  if (workerResponse.headers) {
+    for (const [key, value] of Object.entries(workerResponse.headers)) {
+      res.setHeader(key, value);
     }
-
-    // Check if bucket is public
-    if (bucket.access === 'private') {
-      return res.status(403).json({ error: 'This bucket is private' });
-    }
-
-    // If no path, list bucket root
-    if (pathSegments.length === 0) {
-      const objects = await prisma.object.findMany({
-        where: {
-          bucketId: bucket.id,
-          parentId: null,
-        },
-        orderBy: [
-          { mimeType: 'desc' }, // folders first
-          { filename: 'asc' },
-        ],
-      });
-
-      return res.json({
-        bucket: {
-          name: bucket.name,
-          access: bucket.access,
-        },
-        objects: objects.map(obj => ({
-          filename: obj.filename,
-          isFolder: obj.mimeType === 'folder',
-          size: Number(obj.size),
-          mimeType: obj.mimeType,
-          updatedAt: obj.updatedAt.toISOString(),
-        })),
-      });
-    }
-
-    // Resolve path to object
-    const object = await resolvePath(bucketName, pathSegments, {
-      enabled: bucket.BucketConfig.find(c => c.key === 'cache_path_caching_enable')?.value === 'true',
-      ttl: parseInt(bucket.BucketConfig.find(c => c.key === 'cache_path_caching_ttl_seconds')?.value || '300', 10),
-    });
-
-    if (!object) {
-      return res.status(404).json({ error: 'File or folder not found' });
-    }
-
-    // If it's a folder, list contents
-    if (object.mimeType === 'folder') {
-      const children = await prisma.object.findMany({
-        where: {
-          bucketId: bucket.id,
-          parentId: object.id,
-        },
-        orderBy: [
-          { mimeType: 'desc' }, // folders first
-          { filename: 'asc' },
-        ],
-      });
-
-      return res.json({
-        bucket: {
-          name: bucket.name,
-          access: bucket.access,
-        },
-        currentPath: filePath,
-        objects: children.map(obj => ({
-          filename: obj.filename,
-          isFolder: obj.mimeType === 'folder',
-          size: Number(obj.size),
-          mimeType: obj.mimeType,
-          updatedAt: obj.updatedAt.toISOString(),
-        })),
-      });
-    }
-
-    // It's a file - serve it
-    const physicalPath = getObjectPath(bucketName, object.id);
-    
-    // Check if file exists
-    try {
-      await fs.access(physicalPath);
-    } catch {
-      return res.status(404).json({ error: 'File not found on disk' });
-    }
-
-    // Set content type and send file
-    res.setHeader('Content-Type', object.mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${object.filename}"`);
-    
-    const fileBuffer = await fs.readFile(physicalPath);
-    res.send(fileBuffer);
-  } catch (error) {
-    console.error('Error serving public file:', error);
-    res.status(500).json({ error: 'Failed to serve file' });
   }
+
+  return res.status(workerResponse.status).send(Buffer.from(workerResponse.body));
 });
 
 // POST /api/storage/:bucketName/* - Public file upload (for public-write buckets)
@@ -145,7 +50,7 @@ router.post('/:bucketName/*', upload.single('file'), async (req: Request, res: R
     if (!file) {
       return res.status(400).json({ error: 'No file provided' });
     }
-    
+
     // Get bucket
     const bucket = await prisma.bucket.findFirst({
       where: { name: bucketName },
@@ -245,9 +150,9 @@ router.post('/:bucketName/*', upload.single('file'), async (req: Request, res: R
     });
 
     // Move file to proper location
-  // Store file directly in bucket root
-  const targetPath = path.join(process.cwd(), 'storage', bucket.name, object.id);
-  await fs.rename(file.path, targetPath);
+    // Store file directly in bucket root
+    const targetPath = path.join(process.cwd(), 'storage', bucket.name, object.id);
+    await fs.rename(file.path, targetPath);
 
     res.status(201).json({
       message: 'File uploaded successfully',

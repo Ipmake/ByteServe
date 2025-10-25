@@ -8,14 +8,17 @@ import bodyParser from 'body-parser';
 import { setupS3Server } from './services/connections/s3';
 import { createClient as createRedisClient } from "redis";
 import postgres from 'postgres';
+import Piscina from 'piscina';
+import path from 'path';
+import os from 'os';
 
 dotenv.config();
 
 // Create Prisma client with the adapter
-const prisma = new PrismaClient({ });
+const prisma = new PrismaClient({});
 
 const psql = postgres(process.env.DATABASE_URL ?? "", {
-    publications: 'alltables'
+  publications: 'alltables'
 })
 
 const redis = createRedisClient({
@@ -65,7 +68,35 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
-export { app, prisma, redis, psql };
+const workerPool = new Piscina({
+  filename: path.resolve(__dirname, 'worker.js'),
+  maxQueue: 1000,
+  concurrentTasksPerWorker: Number(process.env.WORKER_TASKS_PER_THREAD ?? 8),
+
+  minThreads: 2,
+  maxThreads: Number(process.env.WORKER_POOL_SIZE ?? os.cpus().length),
+
+  idleTimeout: 5 * 60 * 1000, // 5 minutes
+});
+
+console.log(`Worker pool configured with minThreads=${workerPool.options.minThreads} and maxThreads=${workerPool.options.maxThreads}`);
+
+// setInterval(async () => {
+//   const completed = workerPool.completed;
+//   const queueSize = workerPool.queueSize;
+//   const threads = workerPool.threads.length;
+//   const utilization = workerPool.utilization;
+//   const utilizationPercent = (utilization * 100).toFixed(2);
+//   const status = utilization < 0.3 ? '(Low)' : utilization < 0.7 ? '(Moderate)' : '(High)';
+
+//   console.log(`Worker Pool Status:
+//   Total Workers: ${threads},
+//   Completed Tasks: ${completed},
+//   Task Queue Size: ${queueSize},
+//   Utilization: ${utilizationPercent}% ${status}`);
+// }, 1000); // Log every second
+
+export { app, prisma, redis, psql, workerPool };
 
 startServer(PORT).catch((err) => {
   console.error('Error starting server:', err);
@@ -75,5 +106,8 @@ startServer(PORT).catch((err) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   await prisma.$disconnect();
+  await redis.disconnect();
+  await workerPool.destroy();
+  console.log('Server shut down gracefully');
   process.exit(0);
 });
