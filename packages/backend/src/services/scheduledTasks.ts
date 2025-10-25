@@ -3,6 +3,7 @@ import cron, { ScheduledTask } from 'node-cron';
 import purgeOldObjects from './tasks/purge_old_objects';
 import purgeExpiredTokens from './tasks/purge_expired_tokens';
 import { prisma } from '..';
+import reportHourlyStats from './tasks/report_hourly_stats';
 
 export default class ScheduledTasksService {
     private tasks: ScheduledTask[] = [];
@@ -35,6 +36,9 @@ export default class ScheduledTasksService {
                             break;
                         case 'purge_expired_tokens':
                             purgeExpiredTokens();
+                            break;
+                        case 'report_hourly_stats':
+                            reportHourlyStats();
                             break;
                         default:
                             console.log(`No implementation for task ID: ${row.id}`);

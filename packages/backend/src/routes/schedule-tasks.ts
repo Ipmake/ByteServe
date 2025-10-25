@@ -4,6 +4,7 @@ import { requireAdmin } from './users';
 
 import purgeOldObjects from '../services/tasks/purge_old_objects';
 import purgeExpiredTokens from '../services/tasks/purge_expired_tokens';
+import reportHourlyStats from '../services/tasks/report_hourly_stats';
 
 const router = Router();
 
@@ -42,6 +43,9 @@ router.post('/:id/run', requireAdmin, async (req, res) => {
         break;
       case 'purge_expired_tokens':
         await purgeExpiredTokens();
+        break;
+      case 'report_hourly_stats':
+        await reportHourlyStats();
         break;
       default:
         return res.status(400).json({ error: 'Unknown task ID' });

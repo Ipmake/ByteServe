@@ -69,14 +69,14 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 const workerPool = new Piscina({
-  filename: path.resolve(__dirname, 'worker.js'),
+  filename: path.resolve(__dirname, 'worker', 'worker.js'),
   maxQueue: 1000,
   concurrentTasksPerWorker: Number(process.env.WORKER_TASKS_PER_THREAD ?? 8),
 
   minThreads: 2,
   maxThreads: Number(process.env.WORKER_POOL_SIZE ?? os.cpus().length),
 
-  idleTimeout: 5 * 60 * 1000, // 5 minutes
+  idleTimeout: 6 * 60 * 1000, // 5 minutes
 });
 
 console.log(`Worker pool configured with minThreads=${workerPool.options.minThreads} and maxThreads=${workerPool.options.maxThreads}`);

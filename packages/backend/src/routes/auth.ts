@@ -146,4 +146,22 @@ router.post('/change-password', async (req: Request, res: Response) => {
     }
 });
 
+router.post('/logout', async (req: Request, res: Response) => {
+    const token = req.headers.authorization;
+
+    const user = await AuthUser(token);
+    if (!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    await prisma.authTokens.deleteMany({
+        where: {
+            token: token
+        }
+    });
+
+    res.json({ message: 'Logged out successfully' });
+});
+
 export default router;

@@ -16,6 +16,8 @@ import {
   CircularProgress,
   Alert,
   LinearProgress,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import {
   InsertDriveFile,
@@ -35,6 +37,16 @@ import {
 } from "../../utils/format";
 import { apiService } from "../../api";
 import moment from "moment";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface DashboardStats {
   totalBuckets: number;
@@ -49,7 +61,65 @@ interface DashboardStats {
     createdAt: string;
     objectCount: number;
   }>;
+  bucketStats: Record<string, Stats.DailyUserBucketStats>;
 }
+
+const metricGroups = [
+  {
+    key: "bandwidth",
+    label: "Bandwidth",
+    metrics: [
+      {
+        dataKey: "bytesServed",
+        name: "Bytes Served",
+        color: "#8884d8",
+      },
+    ],
+    formatter: (val: number) => `${(val / 1024 / 1024).toFixed(2)} MB`,
+  },
+  {
+    key: "requests",
+    label: "Requests",
+    metrics: [
+      {
+        dataKey: "apiRequestsCount",
+        name: "API",
+        color: "#ffc658",
+      },
+      {
+        dataKey: "s3RequestsCount",
+        name: "S3",
+        color: "#ff7c7c",
+      },
+      {
+        dataKey: "webdavRequestsCount",
+        name: "WebDAV",
+        color: "#a78bfa",
+      },
+    ],
+    formatter: (val: number) => val.toLocaleString(),
+  },
+  {
+    key: "storage",
+    label: "Storage",
+    metrics: [
+      {
+        dataKey: "usedSpace",
+        name: "Used Space",
+        color: "#fb923c",
+      },
+      {
+        dataKey: "objectCount",
+        name: "Objects",
+        color: "#34d399",
+      },
+    ],
+    formatter: (val: number, dataKey: string) =>
+      dataKey === "usedSpace"
+        ? `${(val / 1024 / 1024).toFixed(2)} MB`
+        : val.toLocaleString(),
+  },
+];
 
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -58,6 +128,42 @@ export default function Dashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
+  const [selectedMetricGroup, setSelectedMetricGroup] = useState("bandwidth");
+
+  const chartData = Object.entries(stats?.bucketStats || {})
+    .sort(([a], [b]) => moment(a).valueOf() - moment(b).valueOf())
+    .map(([date, values]) => ({
+      date,
+      formattedDate: moment(date).format("MMM DD"),
+      ...values,
+    }));
+
+  const currentGroup = metricGroups.find((g) => g.key === selectedMetricGroup);
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <Paper sx={{ p: 1.5, boxShadow: 3 }}>
+          <Typography variant="body2" fontWeight="bold" gutterBottom>
+            {moment(data.date).format("MMMM DD, YYYY")}
+          </Typography>
+          {payload.map((entry: any, index: number) => (
+            <Typography
+              key={index}
+              variant="body2"
+              sx={{ color: entry.color }}
+            >
+              {entry.name}:{" "}
+              {currentGroup?.formatter(entry.value, entry.dataKey)}
+            </Typography>
+          ))}
+        </Paper>
+      );
+    }
+    return null;
+  };
+
   useEffect(() => {
     fetchDashboardStats();
   }, []);
@@ -65,7 +171,8 @@ export default function Dashboard() {
   const fetchDashboardStats = async () => {
     try {
       const data = await apiService.getDashboardStats();
-      setStats(data);
+      const bucketStats = await apiService.getDailyUserBucketStats();
+      setStats({ ...data, bucketStats });
     } catch (err: any) {
       setError(
         err.response?.data?.error ||
@@ -233,13 +340,7 @@ export default function Dashboard() {
           </Card>
         </Grid>
 
-        <Grid
-          size={{
-            xs: 12,
-            sm: 6,
-            md: 3,
-          }}
-        >
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -255,6 +356,82 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
+      {/* Usage Analytics Paper */}
+      <Paper sx={{ mt: 3, p: 3 }}>
+        <Box
+          sx={{
+            mb: 2,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
+          }}
+        >
+          <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+            Usage Analytics
+          </Typography>
+          <ToggleButtonGroup
+            value={selectedMetricGroup}
+            exclusive
+            onChange={(e, newValue) => {
+              if (newValue !== null) {
+                setSelectedMetricGroup(newValue);
+              }
+            }}
+            size="small"
+          >
+            {metricGroups.map((group) => (
+              <ToggleButton key={group.key} value={group.key}>
+                {group.label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Box>
+
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart
+            data={chartData}
+            margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            <XAxis
+              dataKey="formattedDate"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(val: any) => {
+                const formatted = currentGroup?.formatter(val, "");
+                return typeof formatted === "undefined"
+                  ? ""
+                  : String(formatted);
+              }}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend
+              wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }}
+            />
+            {currentGroup?.metrics.map((metric) => (
+              <Line
+                key={metric.dataKey}
+                type="monotone"
+                dataKey={metric.dataKey}
+                stroke={metric.color}
+                strokeWidth={2}
+                name={metric.name}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </Paper>
+
+      {/* Recent Buckets */}
       <Paper sx={{ mt: 3, p: 3 }}>
         <Typography variant="h6" gutterBottom>
           Recent Buckets

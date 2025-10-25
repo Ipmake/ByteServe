@@ -47,6 +47,14 @@ export const apiService = {
         return response.data;
     },
 
+    logout: async () => {   
+        const token = getAuthToken();
+        const response = await api.post<Auth.SuccessResponse>('/auth/logout', {}, {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
     // Buckets
     getBuckets: async () => {
         const token = getAuthToken();
@@ -417,6 +425,15 @@ export const apiService = {
      }) => {
         const token = getAuthToken();
         const response = await api.post<FileReq.FileRequest>('/filereq', data, {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
+    // Stats
+    getDailyUserBucketStats: async () => {
+        const token = getAuthToken();
+        const response = await api.get<Record<string, Stats.DailyUserBucketStats>>('/stats/me', {
             headers: { Authorization: token }
         });
         return response.data;

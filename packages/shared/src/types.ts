@@ -105,7 +105,7 @@ declare global {
     // ============================================
     // Authentication Types
     // ============================================
-    
+
     // Authenticated user session with token
     interface Session extends Models.BaseUser {
       token: string;
@@ -204,6 +204,10 @@ declare global {
       params: Record<string, string>; // URL parameters
       query: Record<string, string>;  // Query parameters
       body: any;                      // Request body
+
+      path: string;
+      originalUrl: string;
+      protocol: string;
     }
 
     interface WorkerResponse {
@@ -213,11 +217,34 @@ declare global {
     }
   }
 
+  namespace Stats {
+    interface BucketStatsInRedis {
+      bucketId: string;
+
+      apiRequestsServed: number;
+      s3RequestsServed: number;
+      webdavRequestsServed: number;
+
+      bytesServed: number;
+      requestsCount: number;
+    }
+
+    interface DailyUserBucketStats {
+      bytesServed: number;
+      requestsCount: number;
+      apiRequestsCount: number;
+      s3RequestsCount: number;
+      webdavRequestsCount: number;
+      usedSpace: number;
+      objectCount: number;
+    }
+  }
+
   namespace API {
     // ============================================
     // Generic API Types
     // ============================================
-    
+
     // Generic error response
     interface Error {
       error: string;
@@ -229,9 +256,9 @@ declare global {
     }
 
     interface BasicResponse {
-      message: string;  
+      message: string;
     }
   }
 }
 
-export {};
+export { };

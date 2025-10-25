@@ -153,11 +153,33 @@ declare global {
             params: Record<string, string>;
             query: Record<string, string>;
             body: any;
+            path: string;
+            originalUrl: string;
+            protocol: string;
         }
         interface WorkerResponse {
             status: number;
             body: any;
             headers?: Record<string, string>;
+        }
+    }
+    namespace Stats {
+        interface BucketStatsInRedis {
+            bucketId: string;
+            apiRequestsServed: number;
+            s3RequestsServed: number;
+            webdavRequestsServed: number;
+            bytesServed: number;
+            requestsCount: number;
+        }
+        interface DailyUserBucketStats {
+            bytesServed: number;
+            requestsCount: number;
+            apiRequestsCount: number;
+            s3RequestsCount: number;
+            webdavRequestsCount: number;
+            usedSpace: number;
+            objectCount: number;
         }
     }
     namespace API {

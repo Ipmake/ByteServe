@@ -68,11 +68,12 @@ model Bucket {
 
     ownerId String
 
-    owner          User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-    entries        Object[]
-    webdavAccess   WebDAVBucketAccess[]
-    S3BucketAccess S3BucketAccess[]
-    BucketConfig   BucketConfig[]
+    owner                 User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+    entries               Object[]
+    webdavAccess          WebDAVBucketAccess[]
+    S3BucketAccess        S3BucketAccess[]
+    BucketConfig          BucketConfig[]
+    BucketStatsTimeSeries BucketStatsTimeSeries[]
 }
 
 model BucketConfig {
@@ -102,7 +103,7 @@ model Object {
 
     bucket Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
 
-    @@unique([bucketId, parentId, filename])
+    // @@unique([bucketId, parentId, filename]) // Created by initServer.ts
 }
 
 model ScheduleTask {
@@ -111,6 +112,44 @@ model ScheduleTask {
     enabled     Boolean   @default(true)
     cron        String
     lastRun     DateTime?
+}
+
+model BucketStatsTimeSeries {
+    bucketId  String
+    timestamp DateTime @default(now()) @db.Timestamp(6)
+
+    usedSpace   BigInt
+    objectCount BigInt
+
+    bytesServed   BigInt
+    requestsCount BigInt
+
+    apiRequestsCount    BigInt
+    s3RequestsCount     BigInt
+    webdavRequestsCount BigInt
+
+    bucket Bucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+    @@id([bucketId, timestamp])
+}
+
+model ServerStatsTimeSeries {
+    timestamp DateTime @default(now()) @db.Timestamp(6)
+
+    workerCount        Int
+    utilizationPercent Float
+
+    memoryUsedBytes  BigInt
+    memoryTotalBytes BigInt
+
+    diskUsedBytes  BigInt
+    diskTotalBytes BigInt
+
+    cpuUsedPercent Float
+
+    requestsServed BigInt
+
+    @@id([timestamp])
 }
 
 model WebDAVCredential {

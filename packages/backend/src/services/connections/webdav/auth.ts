@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import { prisma } from '../../..';
 import { WebDAVUser } from './types';
+import { ConfigManager } from '../../configService';
 
 // Parse HTTP Digest Authorization header
 function parseDigestAuth(authHeader: string): any {
@@ -50,7 +51,7 @@ export async function verifyDigestAuth(req: express.Request): Promise<WebDAVUser
     }
     
     // Calculate expected response for Digest auth
-    const ha1 = md5(`${username}:ByteServe WebDAV:${credential.password}`);
+    const ha1 = md5(`${username}:${ConfigManager.Config["site_name"]} WebDAV:${credential.password}`);
     const ha2 = md5(`${req.method}:${authParams.uri}`);
     
     let expectedResponse;
@@ -78,7 +79,7 @@ export function sendAuthChallenge(res: express.Response) {
     const opaque = crypto.randomBytes(16).toString('hex');
     
     res.setHeader('WWW-Authenticate', 
-        `Digest realm="ByteServe WebDAV", qop="auth", nonce="${nonce}", opaque="${opaque}"`
+        `Digest realm="${ConfigManager.Config["site_name"]} WebDAV", qop="auth", nonce="${nonce}", opaque="${opaque}"`
     );
     res.status(401).send('Unauthorized');
 }

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
@@ -14,6 +14,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7.3.4",
     "@mui/material": "^7.3.4",
+    "@mui/x-charts": "^8.15.0",
     "axios": "^1.12.2",
     "bowser": "^2.12.1",
     "crypto-js": "^4.2.0",
@@ -22,6 +23,7 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.4",
     "react-virtuoso": "^4.14.1",
+    "recharts": "^3.3.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

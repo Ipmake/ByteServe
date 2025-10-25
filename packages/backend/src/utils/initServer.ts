@@ -78,7 +78,7 @@ export async function Init() {
     }
 
     process.stdout.write("Schedule Tasks Present: ")
-    if ((await prisma.scheduleTask.count()) !== 2) {
+    if ((await prisma.scheduleTask.count()) !== 3) {
         await prisma.scheduleTask.deleteMany({})
 
         await prisma.scheduleTask.createMany({
@@ -94,7 +94,13 @@ export async function Init() {
                     displayName: "Purge Expired Tokens",
                     cron: "0 * * * *", // Every hour
                     enabled: true
-                }
+                },
+                {
+                    id: "report_hourly_stats",
+                    displayName: "Report Hourly Stats",
+                    cron: "59 * * * *", // Every hour at minute 59
+                    enabled: true
+                },
             ]
         })
         process.stdout.write("Created \n")

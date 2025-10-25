@@ -26,7 +26,7 @@ export default function VideoViewerPage() {
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:3001/api/objects/${objectId}/content`, {
+      const response = await fetch(`/api/objects/${objectId}/content`, {
         headers: { Authorization: token },
       });
 

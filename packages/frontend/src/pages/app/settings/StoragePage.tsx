@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Typography,
   Box,
@@ -9,14 +9,18 @@ import {
   CircularProgress,
   Alert,
   LinearProgress,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Storage as StorageIcon,
   Folder as FolderIcon,
   InsertDriveFile as FileIcon,
-} from '@mui/icons-material';
-import { formatBytes, calculateQuotaPercentage, getQuotaColor } from '../../../utils/format';
-import { apiService } from '../../../api';
+} from "@mui/icons-material";
+import {
+  formatBytes,
+  calculateQuotaPercentage,
+  getQuotaColor,
+} from "../../../utils/format";
+import { apiService } from "../../../api";
 
 interface StorageStats {
   totalSize: number;
@@ -44,19 +48,23 @@ export default function StoragePage() {
         storageQuota: data.storageQuota ?? -1,
       });
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to fetch storage stats');
+      setError(
+        err.response?.data?.error ||
+          err.message ||
+          "Failed to fetch storage stats"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const usagePercentage = stats 
+  const usagePercentage = stats
     ? calculateQuotaPercentage(stats.totalSize, stats.storageQuota)
     : 0;
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
       </Box>
     );
@@ -76,7 +84,7 @@ export default function StoragePage() {
       </Typography>
 
       <Paper sx={{ p: 3, mt: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 3 }}>
           <StorageIcon color="primary" />
           <Typography variant="h6">Storage Overview</Typography>
         </Box>
@@ -93,9 +101,12 @@ export default function StoragePage() {
             </>
           ) : (
             <>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
                 <Typography variant="body2" color="text.secondary">
-                  {formatBytes(stats?.totalSize || 0)} of {formatBytes(stats?.storageQuota || 0)} used
+                  {formatBytes(stats?.totalSize || 0)} of{" "}
+                  {formatBytes(stats?.storageQuota || 0)} used
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {usagePercentage.toFixed(2)}%
@@ -109,7 +120,8 @@ export default function StoragePage() {
               />
               {usagePercentage >= 90 && (
                 <Alert severity="error" sx={{ mt: 2 }}>
-                  You are running out of storage space. Please delete some files or contact an administrator.
+                  You are running out of storage space. Please delete some files
+                  or contact an administrator.
                 </Alert>
               )}
               {usagePercentage >= 75 && usagePercentage < 90 && (
@@ -122,10 +134,12 @@ export default function StoragePage() {
         </Box>
 
         <Grid container spacing={3}>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card variant="outlined">
               <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Box
+                  sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}
+                >
                   <StorageIcon color="primary" />
                   <Typography variant="body2" color="text.secondary">
                     Total Storage
@@ -138,10 +152,12 @@ export default function StoragePage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card variant="outlined">
               <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Box
+                  sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}
+                >
                   <FolderIcon color="primary" />
                   <Typography variant="body2" color="text.secondary">
                     Total Buckets
@@ -152,10 +168,12 @@ export default function StoragePage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card variant="outlined">
               <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Box
+                  sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}
+                >
                   <FileIcon color="primary" />
                   <Typography variant="body2" color="text.secondary">
                     Total Files

@@ -1,95 +1,9 @@
-import { Prisma, PrismaClient } from "@prisma/client";
 import express from "express";
-import { createClient as createRedisClient } from "redis";
-import crypto from "crypto";
-import path from "path";
+import { prisma } from "../worker";
 import fs from "fs/promises";
+import WorkerTools from "./WorkerTools";
 
-const prisma = new PrismaClient({});
-const redis = createRedisClient({
-    url: process.env.REDIS_CONNECTION_STRING
-});
-
-class WorkerTools {
-    public static async resolvePath(bucketName: string, pathSegments: string[], caching: {
-        enabled: boolean;
-        ttl: number;
-    } = {
-            enabled: false,
-            ttl: 300,
-        }): Promise<Prisma.ObjectGetPayload<{ include: { bucket: true } }> | null> {
-
-        if (caching?.enabled) {
-            const pathHash = crypto.createHash('md5').update(`${bucketName}:${pathSegments.join('/')}`).digest('hex');
-            const data = await redis.json.get(`object-path-cache:${pathHash}`) as Prisma.ObjectGetPayload<{ include: { bucket: true } }> | null;
-            if (data) return {
-                ...data,
-                size: BigInt(data.size),
-                bucket: {
-                    ...data.bucket,
-                    storageQuota: BigInt(data.bucket.storageQuota),
-                }
-            };
-        }
-
-        let currentParentId: string | null = null;
-        let result: Prisma.ObjectGetPayload<{ include: { bucket: true } }> | null = null;
-
-        for (const segment of pathSegments) {
-            const foundObject: Prisma.ObjectGetPayload<{ include: { bucket: true } }> | null = await prisma.object.findFirst({
-                where: {
-                    bucket: { name: bucketName },
-                    filename: segment,
-                    parentId: currentParentId,
-                },
-                include: { bucket: true },
-            });
-
-            if (!foundObject) return null;
-
-            result = foundObject;
-            if (foundObject.mimeType === 'folder') currentParentId = foundObject.id;
-        }
-
-        if (caching?.enabled && result) {
-            const pathHash = crypto.createHash('md5').update(`${bucketName}:${pathSegments.join('/')}`).digest('hex');
-            const res = await Promise.all([
-                redis.json.set(`object-path-cache:${pathHash}`, '$', {
-                    ...result,
-                    size: Number(result.size),
-                    bucket: {
-                        ...result.bucket,
-                        storageQuota: Number(result.bucket.storageQuota),
-                    }
-                }),
-                redis.expire(`object-path-cache:${pathHash}`, caching.ttl)
-            ])
-        }
-
-        return result;
-    }
-
-    public static getObjectPath(bucketName: string, objectId: string): string {
-        return path.join(process.cwd(), 'storage', bucketName, objectId);
-    }
-
-    public static getStorageDir(): string {
-        return path.join(process.cwd(), 'storage');
-    }
-
-    public static async ensureWorkerReady(): Promise<void> {
-        if (!redis.isOpen) {
-            await redis.connect();
-        }
-    }
-}
-
-
-class FileRequestWorker {
-
-}
-
-class StorageWorker {
+export default class StorageWorker {
     public static async PublicFileAccess(req: express.Request): Promise<Worker.WorkerResponse> {
         await WorkerTools.ensureWorkerReady();
         try {
@@ -188,16 +102,15 @@ class StorageWorker {
             // It's a file - serve it
             const physicalPath = WorkerTools.getObjectPath(bucketName, object.id);
 
-            // Check if file exists
-            try {
-                await fs.access(physicalPath);
-            } catch {
-                return { status: 404, body: { error: 'File not found on disk' } };
-            }
-
             // Set content type and send file
-
             const fileBuffer = await fs.readFile(physicalPath);
+
+            await WorkerTools.updateStatsInRedis(bucket.id, {
+                requestsCount: 1,
+                bytesServed: fileBuffer.length,
+                apiRequestsServed: 1,
+            });
+
             return {
                 status: 200,
                 body: Buffer.from(fileBuffer),
@@ -212,5 +125,3 @@ class StorageWorker {
         }
     }
 }
-
-export const StorageWorker_PublicFileAccess = StorageWorker.PublicFileAccess;

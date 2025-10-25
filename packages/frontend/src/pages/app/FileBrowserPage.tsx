@@ -25,6 +25,8 @@ import {
   Tooltip,
   Menu,
   MenuItem,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   CreateNewFolder as CreateFolderIcon,
@@ -87,7 +89,8 @@ export default function FileBrowserPage() {
   const [shareUrl, setShareUrl] = useState("");
 
   const [createFileReqDialogOpen, setCreateFileReqDialogOpen] = useState(false);
-  const [fileReqCmd, setFileReqCmd] = useState<string | null>(null);
+  const [fileReqId, setFileReqId] = useState<string | null>(null);
+  const [fileReqPlatform, setFileReqPlatform] = useState<string>("linux");
 
   const [uploadMenuAnchorEl, setUploadMenuAnchorEl] =
     useState<null | HTMLElement>(null);
@@ -245,7 +248,7 @@ export default function FileBrowserPage() {
             reject(new Error("Network error"));
           });
 
-          xhr.open("POST", "http://localhost:3001/api/objects/upload");
+          xhr.open("POST", "/api/objects/upload");
           xhr.setRequestHeader("Authorization", token);
           xhr.send(formData);
         });
@@ -331,7 +334,7 @@ export default function FileBrowserPage() {
 
         xhr.open(
           "GET",
-          `http://localhost:3001/api/objects/${object.id}/download`
+          `/api/objects/${object.id}/download`
         );
         xhr.setRequestHeader("Authorization", token);
         xhr.responseType = "blob";
@@ -697,7 +700,7 @@ export default function FileBrowserPage() {
             fixedHeaderContent={() => (
               <TableRow>
                 <TableCell
-                  sx={{ width: "40%", backgroundColor: "background.paper" }}
+                  sx={{ width: "30%", backgroundColor: "background.paper" }}
                 >
                   Name
                 </TableCell>
@@ -1091,9 +1094,7 @@ export default function FileBrowserPage() {
         onClose={(fileReqId) => {
           setCreateFileReqDialogOpen(false);
           if (fileReqId) {
-            setFileReqCmd(
-              `curl ${document.location.protocol}//${document.location.host}/api/filereq/${fileReqId}/sh | bash -s -- --file myfile.png`
-            );
+            setFileReqId(fileReqId);
           }
         }}
         bucketId={bucketId!}
@@ -1101,8 +1102,8 @@ export default function FileBrowserPage() {
       />
 
       <Dialog
-        open={Boolean(fileReqCmd)}
-        onClose={() => setFileReqCmd(null)}
+        open={Boolean(fileReqId)}
+        onClose={() => setFileReqId(null)}
         maxWidth="md"
         fullWidth
       >
@@ -1121,10 +1122,27 @@ export default function FileBrowserPage() {
             the final uploaded file will use that name instead. Otherwise it
             will use the name you provide with the --file argument.
           </Typography>
+
+          <Tabs value={fileReqPlatform === "linux" ? 0 : 1}>
+            <Tab
+              label="Linux / macOS"
+              onClick={() => setFileReqPlatform("linux")}
+            />
+            <Tab
+              label="Windows"
+              onClick={() => setFileReqPlatform("windows")}
+            />
+          </Tabs>
+
           <TextField
             fullWidth
             variant="outlined"
-            value={fileReqCmd || ""}
+            value={
+              fileReqId &&
+              (fileReqPlatform === "linux"
+                ? `curl ${document.location.protocol}//${document.location.host}/api/filereq/${fileReqId}/sh | bash -s -- --file myfile.png`
+                : `& ([scriptblock]::Create((iwr -useb ${document.location.protocol}//${document.location.host}/api/filereq/${fileReqId}/ps1))) -File "myfile.txt"`)
+            }
             slotProps={{
               input: {
                 readOnly: true,
@@ -1135,12 +1153,17 @@ export default function FileBrowserPage() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setFileReqCmd(null)}>Close</Button>
+          <Button onClick={() => setFileReqId(null)}>Close</Button>
           <Button
             onClick={() => {
-              if (fileReqCmd) {
+              if (fileReqId) {
                 navigator.clipboard
-                  .writeText(fileReqCmd)
+                  .writeText(
+                    fileReqId &&
+                      (fileReqPlatform === "linux"
+                        ? `curl ${document.location.protocol}//${document.location.host}/api/filereq/${fileReqId}/sh | bash -s -- --file myfile.png`
+                        : `& ([scriptblock]::Create((iwr -useb ${document.location.protocol}//${document.location.host}/api/filereq/${fileReqId}/ps1))) -File "myfile.txt"`)
+                  )
                   .catch((err) => {
                     console.error("Failed to copy:", err);
                   });
