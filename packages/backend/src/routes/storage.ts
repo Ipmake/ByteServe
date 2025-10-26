@@ -5,8 +5,9 @@ import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import mime from 'mime-types';
-import { getObjectPath, resolvePath } from '../common/object-nesting';
+import { resolvePath } from '../common/object-nesting';
 import { ExpressRequestToWorkerRequest } from '../common/object';
+import { MessagePortDuplex } from '../common/stream';
 
 const router = Router();
 
@@ -26,17 +27,37 @@ const upload = multer({ storage });
 
 // GET /api/storage/:bucketName/* - Public file access
 router.get('/:bucketName/*', async (req: Request, res: Response) => {
-  const workerResponse: Worker.WorkerResponse = await workerPool.run(ExpressRequestToWorkerRequest(req), {
-    name: 'StorageWorker_PublicFileAccess',
+  const { port1, port2 } = new MessageChannel();
+
+  port1.once('message', async (metadata) => {
+    try {
+      // Set headers based on metadata
+      res.status(200);
+      res.setHeader('Content-Type', metadata.mimeType);
+      res.setHeader('Content-Disposition', `inline; filename="${metadata.filename}"`);
+      res.setHeader('Content-Length', metadata.contentLength);
+
+      const duplex = new MessagePortDuplex(port1);
+
+      // Pipe the rest of the data
+      duplex.pipe(res);
+    } catch (e) {
+      res.status(500).send('Invalid metadata');
+    }
   });
 
-  if (workerResponse.headers) {
-    for (const [key, value] of Object.entries(workerResponse.headers)) {
-      res.setHeader(key, value);
-    }
-  }
+  const data = { port: port2, req: ExpressRequestToWorkerRequest(req) };
 
-  return res.status(workerResponse.status).send(Buffer.from(workerResponse.body));
+  const workerRes = await workerPool.run(data, {
+    name: 'StorageWorker_PublicFileAccess',
+    transferList: [port2],
+  });
+
+  if (workerRes.status !== 200 || workerRes.body) {
+    port1.close();
+    port2.close();
+    return res.status(workerRes.status).json(workerRes.body);
+  }
 });
 
 // POST /api/storage/:bucketName/* - Public file upload (for public-write buckets)

@@ -1,9 +1,17 @@
 import { prisma } from '../../../worker';
 import { S3SigV4Auth } from '../SigV4Util';
 import WorkerTools from '../../WorkerTools';
-import fs from 'fs/promises';
+import { createReadStream } from 'fs';
+import { MessagePort } from 'worker_threads';
+import { pipeline } from 'stream';
+import { MessagePortDuplex } from '../../../../common/stream';
 
-export async function S3WorkerHandlers_GetObject(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
+export async function S3WorkerHandlers_GetObject(data: {
+    port: MessagePort;
+    req: Worker.WorkerRequest;
+}): Promise<Worker.WorkerResponse> {
+    const req = data.req;
+
     await WorkerTools.ensureWorkerReady();
 
     const { bucket } = req.params;
@@ -57,17 +65,39 @@ export async function S3WorkerHandlers_GetObject(req: Worker.WorkerRequest): Pro
 
     if (!object) return { status: 404, body: 'Object not found' };
 
-    const file = await fs.readFile(WorkerTools.getObjectPath(bucketObj.name, object.id));
-
     await WorkerTools.updateStatsInRedis(bucketObj.id, {
         requestsCount: 1,
         s3RequestsServed: 1,
         bytesServed: Number(object.size)
     });
 
+    data.port.postMessage({
+        type: 'metadata',
+        contentLength: Number(object.size),
+        mimeType: object.mimeType,
+        filename: object.filename,
+    })
+
+    await new Promise<void>((resolve, reject) => {
+        setImmediate(resolve);
+    });
+
+    await new Promise<void>((resolve, reject) => {
+        const duplex = new MessagePortDuplex(data.port);
+
+        pipeline(
+            createReadStream(WorkerTools.getObjectPath(bucketObj.name, object.id)),
+            duplex,
+            (err) => {
+                if (err) reject(err);
+                else resolve();
+            }
+        )
+    });
+
     return {
         status: 200,
-        body: file,
+        body: null,
         headers: {
             'Content-Length': object.size.toString(),
             'Content-Type': object.mimeType,

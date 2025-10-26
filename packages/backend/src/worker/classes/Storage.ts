@@ -1,11 +1,21 @@
 import express from "express";
 import { prisma } from "../worker";
 import fs from "fs/promises";
+import fssync from "fs";
 import WorkerTools from "./WorkerTools";
+import { MessagePortDuplex } from "../../common/stream";
+import { MessagePort } from "worker_threads";
+import { pipeline } from "stream";
 
 export default class StorageWorker {
-    public static async PublicFileAccess(req: express.Request): Promise<Worker.WorkerResponse> {
+    public static async PublicFileAccess(data: {
+        port: MessagePort;
+        req: Worker.WorkerRequest;
+    }): Promise<Worker.WorkerResponse> {
+        const req: Worker.WorkerRequest = data.req;
+
         await WorkerTools.ensureWorkerReady();
+
         try {
             const { bucketName } = req.params;
             const filePath = req.params[0] || ''; // Everything after bucketName
@@ -102,18 +112,39 @@ export default class StorageWorker {
             // It's a file - serve it
             const physicalPath = WorkerTools.getObjectPath(bucketName, object.id);
 
-            // Set content type and send file
-            const fileBuffer = await fs.readFile(physicalPath);
-
             await WorkerTools.updateStatsInRedis(bucket.id, {
                 requestsCount: 1,
-                bytesServed: fileBuffer.length,
+                bytesServed: Number(object.size),
                 apiRequestsServed: 1,
+            });
+
+            data.port.postMessage({
+                type: 'metadata',
+                contentLength: Number(object.size),
+                mimeType: object.mimeType,
+                filename: object.filename,
+            })
+
+            await new Promise<void>((resolve, reject) => {
+                setImmediate(resolve);
+            });
+
+            await new Promise<void>((resolve, reject) => {
+                const duplex = new MessagePortDuplex(data.port);
+
+                pipeline(
+                    fssync.createReadStream(physicalPath),
+                    duplex,
+                    (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    }
+                )
             });
 
             return {
                 status: 200,
-                body: Buffer.from(fileBuffer),
+                body: null,
                 headers: {
                     'Content-Type': object.mimeType,
                     'Content-Disposition': `inline; filename="${object.filename}"`,

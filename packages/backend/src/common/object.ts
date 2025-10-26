@@ -1,5 +1,6 @@
 import express from 'express';
 import { workerPool } from '..';
+import { MessagePort } from 'worker_threads';
 
 export function ExpressRequestToWorkerRequest(req: express.Request): Worker.WorkerRequest {
     return {
