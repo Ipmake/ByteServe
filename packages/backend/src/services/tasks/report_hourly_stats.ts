@@ -4,12 +4,11 @@ export default async function reportHourlyStats() {
     const now = new Date();
     now.setMinutes(0, 0, 0); // Round down to the current hour
 
-    // get multiple keys from redis. Scan for keys matching bucket:*:stats
-    const keys = await redis.keys('bucket:*:stats');
+    const buckets = await prisma.bucket.findMany();
 
-    for (const key of keys) {
-        const bucketId = key.split(':')[1];
-        const stats: Stats.BucketStatsInRedis = await redis.hGetAll(key) as any;
+    for (const bucket of buckets) {
+        const bucketId = bucket.id;
+        const stats: Stats.BucketStatsInRedis = await redis.hGetAll(`bucket:${bucketId}:stats`) as unknown as Stats.BucketStatsInRedis;
 
         // Convert string values to numbers
         const BytesServed = BigInt(stats.bytesServed || '0');
@@ -67,7 +66,7 @@ export default async function reportHourlyStats() {
         });
 
         // Reset stats in redis
-        await redis.hSet(key, {
+        await redis.hSet(`bucket:${bucketId}:stats`, {
             apiRequestsServed: 0,
             s3RequestsServed: 0,
             webdavRequestsServed: 0,
@@ -77,8 +76,11 @@ export default async function reportHourlyStats() {
     }
 
 
-    await prisma.serverStatsTimeSeries.create({
-        data: {
+    await prisma.serverStatsTimeSeries.upsert({
+        where: {
+            timestamp: now,
+        },
+        create: {
             diskUsedBytes: BigInt(0), // Placeholder, implement actual disk usage calculation if needed
             diskTotalBytes: BigInt(0), // Placeholder, implement actual disk usage calculation if needed
 
@@ -93,6 +95,20 @@ export default async function reportHourlyStats() {
             utilizationPercent: Number.parseFloat((workerPool.utilization * 100).toFixed(2)),
 
             timestamp: now,
+        },
+        update: {
+            diskUsedBytes: BigInt(0), // Placeholder, implement actual disk usage calculation if needed
+            diskTotalBytes: BigInt(0), // Placeholder, implement actual disk usage calculation if needed
+
+            memoryTotalBytes: BigInt(0), // Placeholder, implement actual memory usage calculation if needed
+            memoryUsedBytes: BigInt(0), // Placeholder, implement actual memory usage calculation if needed
+
+            cpuUsedPercent: 0, // Placeholder, implement actual CPU usage calculation if needed
+
+            requestsServed: 0, // Placeholder, implement actual request counting if needed
+
+            workerCount: workerPool.threads.length,
+            utilizationPercent: Number.parseFloat((workerPool.utilization * 100).toFixed(2)),
         },
     });
 

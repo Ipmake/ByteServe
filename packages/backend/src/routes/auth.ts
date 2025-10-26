@@ -164,4 +164,60 @@ router.post('/logout', async (req: Request, res: Response) => {
     res.json({ message: 'Logged out successfully' });
 });
 
+router.get('/tokens', async (req: Request, res: Response) => {
+    const token = req.headers.authorization;
+
+    const user = await AuthUser(token);
+    if (!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    const tokens = await prisma.authTokens.findMany({
+        where: {
+            userId: user.user.id,
+            isApi: false
+        },
+        orderBy: {
+            createdAt: 'desc'
+        }
+    });
+
+    res.json(tokens.map(t => ({
+        id: t.id,
+        description: t.description,
+        createdAt: t.createdAt,
+        expiresAt: t.expiresAt
+    })));
+})
+
+router.delete('/tokens/:id', async (req: Request, res: Response) => {
+    const token = req.headers.authorization;
+
+    const user = await AuthUser(token);
+    if (!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+
+    const authToken = await prisma.authTokens.findUnique({
+        where: {
+            id: req.params.id
+        }
+    });
+
+    if (!authToken || authToken.userId !== user.user.id || authToken.isApi) {
+        res.status(404).json({ error: 'Token not found' });
+        return;
+    }
+
+    await prisma.authTokens.delete({
+        where: {
+            id: req.params.id
+        }
+    });
+
+    res.json({ message: 'Token deleted successfully' });
+});
+
 export default router;

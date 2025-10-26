@@ -4,7 +4,6 @@ import { app } from './';
 import express from 'express';
 import { Init } from './utils/initServer';
 import ScheduledTasksService from './services/scheduledTasks';
-import { setupS3Server } from './services/connections/s3';
 import { getStorageDir } from './common/object-nesting';
 
 export async function startServer(port: number | string) {

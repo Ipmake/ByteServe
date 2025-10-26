@@ -149,11 +149,7 @@ export default function Dashboard() {
             {moment(data.date).format("MMMM DD, YYYY")}
           </Typography>
           {payload.map((entry: any, index: number) => (
-            <Typography
-              key={index}
-              variant="body2"
-              sx={{ color: entry.color }}
-            >
+            <Typography key={index} variant="body2" sx={{ color: entry.color }}>
               {entry.name}:{" "}
               {currentGroup?.formatter(entry.value, entry.dataKey)}
             </Typography>
@@ -412,9 +408,7 @@ export default function Dashboard() {
               }}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend
-              wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }}
-            />
+            <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }} />
             {currentGroup?.metrics.map((metric) => (
               <Line
                 key={metric.dataKey}

@@ -59,6 +59,12 @@ export async function S3WorkerHandlers_GetObject(req: Worker.WorkerRequest): Pro
 
     const file = await fs.readFile(WorkerTools.getObjectPath(bucketObj.name, object.id));
 
+    await WorkerTools.updateStatsInRedis(bucketObj.id, {
+        requestsCount: 1,
+        s3RequestsServed: 1,
+        bytesServed: Number(object.size)
+    });
+
     return {
         status: 200,
         body: file,

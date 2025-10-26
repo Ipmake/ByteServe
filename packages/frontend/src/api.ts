@@ -55,6 +55,22 @@ export const apiService = {
         return response.data;
     },
 
+    getTokens: async () => {
+        const token = getAuthToken();
+        const response = await api.get<Auth.UserTokenView[]>('/auth/tokens', {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
+    deleteToken: async (id: string) => {
+        const token = getAuthToken();
+        const response = await api.delete<API.BasicResponse>(`/auth/tokens/${id}`, {
+            headers: { Authorization: token }
+        });
+        return response.data;
+    },
+
     // Buckets
     getBuckets: async () => {
         const token = getAuthToken();

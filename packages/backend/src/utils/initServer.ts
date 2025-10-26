@@ -2,6 +2,9 @@ import { $Enums } from "@prisma/client";
 import { prisma } from "..";
 import { HashPW } from "./authLoader";
 import { ConfigManager } from "../services/configService";
+import fs from 'fs/promises';
+import path from 'path';
+import selfsigned from 'selfsigned';
 
 export async function Init() {
 
@@ -30,6 +33,50 @@ export async function Init() {
             );
         `)
     ]);
+
+    console.log("Start Structure checks:")
+
+    process.stdout.write("\n")
+
+    process.stdout.write("Data Directory Present: ")
+    const DataDirPresent = await fs.access(path.join(process.cwd(), "data")).then(() => true).catch(() => false);
+    if (DataDirPresent) process.stdout.write("OK \n")
+    else {
+        await fs.mkdir(path.join(process.cwd(), "data"), { recursive: true });
+        process.stdout.write("Created \n")
+    }
+
+    process.stdout.write("SSL Directory Present: ")
+    const SSLDirPresent = await fs.access(path.join(process.cwd(), "data", "ssl")).then(() => true).catch(() => false);
+    if (SSLDirPresent) process.stdout.write("OK \n")
+    else {
+        await fs.mkdir(path.join(process.cwd(), "data", "ssl"), { recursive: true });
+        process.stdout.write("Created \n")
+    }
+
+    process.stdout.write("SSL Cert: ")
+    const certPath = path.join(process.cwd(), "data", "ssl", "cert.pem");
+    const keyPath = path.join(process.cwd(), "data", "ssl", "key.pem");
+
+    const certExists = await fs.access(certPath).then(() => true).catch(() => false);
+    const keyExists = await fs.access(keyPath).then(() => true).catch(() => false);
+
+    if (!certExists || !keyExists) {
+        const attrs = [{ name: 'commonName', value: 'ByteServe Self-Signed Cert' }];
+        const pems = selfsigned.generate(attrs, {
+            days: 3650,
+            keySize: 2048,
+            algorithm: 'sha256'
+        });
+
+        await fs.writeFile(certPath, pems.cert);
+        await fs.writeFile(keyPath, pems.private);
+        process.stdout.write("Created \n")
+    } else {
+        process.stdout.write("OK \n")
+    }
+
+    process.stdout.write("\n")
 
     console.log("Start Database checks: ")
 

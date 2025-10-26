@@ -91,6 +91,12 @@ declare global {
         interface SuccessResponse {
             message: string;
         }
+        interface UserTokenView {
+            id: string;
+            description: string;
+            createdAt: string;
+            expiresAt: string;
+        }
     }
     namespace Credentials {
         namespace S3 {
