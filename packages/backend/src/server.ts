@@ -6,17 +6,23 @@ import { Init } from './utils/initServer';
 import ScheduledTasksService from './services/scheduledTasks';
 import { getStorageDir } from './common/object-nesting';
 
+import http from 'http';
+import https from 'https';
+
+export let httpServer: http.Server | null = null;
+export let httpsServer: https.Server | null = null;
+
 export async function startServer(port: number | string) {
     await Init();
-        
+
     const __dirname = process.cwd();
     const routesDir = path.join(__dirname, 'dist', 'routes');
     const wwwDir = path.join(__dirname, 'www');
-    
+
     try {
         // Ensure routes directory exists
-        await fs.mkdir(routesDir, { recursive: true }).catch(() => {});
-        
+        await fs.mkdir(routesDir, { recursive: true }).catch(() => { });
+
         // Enable CORS for all requests
         app.use((req, res, next) => {
             res.header('Access-Control-Allow-Origin', '*');
@@ -36,12 +42,12 @@ export async function startServer(port: number | string) {
         await registerRoutes(app, routesDir, '/api');
 
         const scheduledTasksService = new ScheduledTasksService();
-        
+
         // Check if www directory exists
         try {
             await fs.access(wwwDir);
             app.use(express.static(wwwDir));
-            
+
             // For any other requests, send index.html for SPA routing
             app.use((req, res, next) => {
                 if (req.path.startsWith('/api/')) return next();
@@ -56,7 +62,7 @@ export async function startServer(port: number | string) {
             });
         } catch {
             console.log('www directory not found, skipping static file serving');
-            
+
             // Just handle API routes if no frontend
             app.use((req, res, next) => {
                 if (req.path.startsWith('/api/')) return next();
@@ -69,10 +75,19 @@ export async function startServer(port: number | string) {
         // Clean .temp directory on startup
         console.log('Cleaning temporary files...');
         const tempDir = path.join(getStorageDir(), '.temp');
-        await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
-        await fs.mkdir(tempDir, { recursive: true }).catch(() => {});
+        await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
+        await fs.mkdir(tempDir, { recursive: true }).catch(() => { });
         console.log('Temporary files cleaned.');
-        
+
+        httpServer = http.createServer(app);
+        httpsServer = https.createServer({
+            key: await fs.readFile(path.join(__dirname, 'data', 'ssl', 'key.pem')),
+            cert: await fs.readFile(path.join(__dirname, 'data', 'ssl', 'cert.pem')),
+        }, app);
+
+        httpServer.listen(80);
+        httpsServer.listen(443);
+
         return app.listen(port, () => {
             console.log(`Server running on http://localhost:${port}`);
         });

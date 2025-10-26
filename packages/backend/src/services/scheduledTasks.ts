@@ -4,6 +4,7 @@ import purgeOldObjects from './tasks/purge_old_objects';
 import purgeExpiredTokens from './tasks/purge_expired_tokens';
 import { prisma } from '..';
 import reportHourlyStats from './tasks/report_hourly_stats';
+import ssl_cert_renewal from './tasks/ssl_cert_renewal';
 
 export default class ScheduledTasksService {
     private tasks: ScheduledTask[] = [];
@@ -39,6 +40,9 @@ export default class ScheduledTasksService {
                             break;
                         case 'report_hourly_stats':
                             reportHourlyStats();
+                            break;
+                        case 'ssl_cert_renewal':
+                            ssl_cert_renewal();
                             break;
                         default:
                             console.log(`No implementation for task ID: ${row.id}`);

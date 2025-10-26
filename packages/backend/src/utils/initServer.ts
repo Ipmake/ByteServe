@@ -92,6 +92,22 @@ export async function Init() {
                 description: "The name of the site displayed in the UI",
                 type: $Enums.ConfigType.STRING,
                 selectOptions: [],
+            },
+            {
+                category: "ssl",
+                key: "ssl_renewal_email",
+                value: "",
+                description: "Email address used for Let's Encrypt SSL certificate renewal",
+                type: $Enums.ConfigType.STRING,
+                selectOptions: [],
+            },
+            {
+                category: "ssl",
+                key: "ssl_cert_renewal_domains",
+                value: "",
+                description: "Comma-separated list of domains for Let's Encrypt SSL certificate renewal",
+                type: $Enums.ConfigType.STRING,
+                selectOptions: [],
             }
         ],
         skipDuplicates: true,
@@ -125,35 +141,36 @@ export async function Init() {
     }
 
     process.stdout.write("Schedule Tasks Present: ")
-    if ((await prisma.scheduleTask.count()) !== 3) {
-        await prisma.scheduleTask.deleteMany({})
-
-        await prisma.scheduleTask.createMany({
-            data: [
-                {
-                    id: "purge_old_objects",
-                    displayName: "Purge Old Objects",
-                    cron: "0 0 * * *", // Every day at midnight
-                    enabled: true
-                },
-                {
-                    id: "purge_expired_tokens",
-                    displayName: "Purge Expired Tokens",
-                    cron: "0 * * * *", // Every hour
-                    enabled: true
-                },
-                {
-                    id: "report_hourly_stats",
-                    displayName: "Report Hourly Stats",
-                    cron: "59 * * * *", // Every hour at minute 59
-                    enabled: true
-                },
-            ]
-        })
-        process.stdout.write("Created \n")
-    } else {
-        process.stdout.write("OK \n")
-    }
+    await prisma.scheduleTask.createMany({
+        data: [
+            {
+                id: "purge_old_objects",
+                displayName: "Purge Old Objects",
+                cron: "0 0 * * *", // Every day at midnight
+                enabled: true
+            },
+            {
+                id: "purge_expired_tokens",
+                displayName: "Purge Expired Tokens",
+                cron: "0 * * * *", // Every hour
+                enabled: true
+            },
+            {
+                id: "report_hourly_stats",
+                displayName: "Report Hourly Stats",
+                cron: "59 * * * *", // Every hour at minute 59
+                enabled: true
+            },
+            {
+                id: "ssl_cert_renewal",
+                displayName: "SSL Certificate Renewal",
+                cron: "0 0 * * *", // Every day at midnight
+                enabled: false
+            }
+        ],
+        skipDuplicates: true,
+    })
+    process.stdout.write("OK \n")
 
     process.stdout.write("\n")
     console.log("Database checks complete.")

@@ -5,3 +5,8 @@ declare namespace Express {
         user?: Awaited<ReturnType<typeof import('./utils/authLoader').AuthUser>>;
     }
 }
+
+declare module "greenlock" {
+    const Greenlock: any;
+    export default Greenlock;
+}

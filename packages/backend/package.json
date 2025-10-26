@@ -31,7 +31,8 @@
     "postgres": "^3.4.7",
     "redis": "^5.8.3",
     "selfsigned": "^3.0.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "greenlock": "^2.8.9"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
