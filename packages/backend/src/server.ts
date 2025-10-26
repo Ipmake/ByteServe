@@ -87,10 +87,6 @@ export async function startServer(port: number | string) {
 
         httpServer.listen(80);
         httpsServer.listen(443);
-
-        return app.listen(port, () => {
-            console.log(`Server running on http://localhost:${port}`);
-        });
     } catch (err) {
         console.error('Failed to start server:', err);
         throw err;

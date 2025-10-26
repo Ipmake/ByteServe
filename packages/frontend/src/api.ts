@@ -18,6 +18,12 @@ const getAuthToken = (): string => {
 };
 
 export const apiService = {
+    // Info
+    getInfo: async () => {
+        const response = await api.get<Info.AppInfo>('/info');
+        return response.data;
+    },
+
     // Health check
     health: async () => {
         const response = await api.get<API.Health>('/health');

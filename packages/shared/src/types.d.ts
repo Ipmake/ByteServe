@@ -188,6 +188,13 @@ declare global {
             objectCount: number;
         }
     }
+    namespace Info {
+        interface AppInfo {
+            app: string;
+            version: string;
+            status: string;
+        }
+    }
     namespace API {
         interface Error {
             error: string;

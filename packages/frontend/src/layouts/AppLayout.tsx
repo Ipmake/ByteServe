@@ -42,6 +42,7 @@ import { useAuthStore } from "../states/authStore";
 import { useTransferStore } from "../store/transferStore";
 import TransferManager from "../components/TransferManager";
 import { apiService } from "../api";
+import useInfoStore from "../states/infoStore";
 
 const drawerWidth = 240;
 
@@ -96,6 +97,8 @@ export default function AppLayout() {
   const { transfers, toggleOpen } = useTransferStore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const { info } = useInfoStore();
+
   // Auto-expand settings if on a settings page
   const isSettingsPage = location.pathname.startsWith("/app/settings");
   const [settingsOpen, setSettingsOpen] = useState(isSettingsPage);
@@ -142,14 +145,22 @@ export default function AppLayout() {
   const drawer = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Toolbar>
-        <Typography
-          variant="h6"
-          noWrap
-          component="div"
-          sx={{ fontWeight: 600 }}
-        >
-          ByteServe
-        </Typography>
+        <Tooltip title={`ByteServe Server V${info?.version || "N/A"}`} placement="right" arrow>
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              pointer: "default",
+            }}
+          >
+            {info?.app || "ByteServe"}
+          </Typography>
+        </Tooltip>
       </Toolbar>
       <Divider />
       <List sx={{ flexGrow: 1, pt: 2 }}>

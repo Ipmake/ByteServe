@@ -164,7 +164,7 @@ export async function Init() {
             {
                 id: "ssl_cert_renewal",
                 displayName: "SSL Certificate Renewal",
-                cron: "0 0 * * *", // Every day at midnight
+                cron: "0 0 */20 * *", // Every 20 days at midnight
                 enabled: false
             }
         ],

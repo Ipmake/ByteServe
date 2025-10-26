@@ -20,6 +20,7 @@ import AdminPage from "./pages/app/settings/AdminPage";
 import ScheduleTasksPage from "./pages/app/settings/ScheduleTasksPage";
 import S3Page from "./pages/app/credentials/S3Page";
 import ApiPage from "./pages/app/credentials/ApiPage";
+import useInfoStore from "./states/infoStore";
 
 function App() {
   const { user, setUser } = useAuthStore();
@@ -29,6 +30,10 @@ function App() {
     const authToken = localStorage.getItem("authToken");
 
     if (!authToken) return setIsLoaded(true);
+
+    useInfoStore.getState().fetchInfo();
+
+    setInterval(() => useInfoStore.getState().fetchInfo(), 5 * 60 * 1000); // Refresh app info every 5 minutes
 
     // Fetch user data with the token
     apiService
@@ -65,7 +70,7 @@ function App() {
       <Route path="/viewer/image/:objectId" element={<ImageViewerPage />} />
       <Route path="/viewer/text/:objectId" element={<TextEditorPage />} />
       <Route path="/viewer/video/:objectId" element={<VideoViewerPage />} />
-      
+
       {/* App routes with layout */}
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
@@ -76,7 +81,10 @@ function App() {
           <Route path="api" element={<ApiPage />} />
           <Route path="s3" element={<S3Page />} />
           <Route path="webdav" element={<WebDAVPage />} />
-          <Route index element={<Navigate to="/app/credentials/api" replace />} />
+          <Route
+            index
+            element={<Navigate to="/app/credentials/api" replace />}
+          />
         </Route>
         <Route path="settings">
           <Route path="account" element={<AccountPage />} />
@@ -84,7 +92,10 @@ function App() {
           <Route path="storage" element={<StoragePage />} />
           <Route path="schedule-tasks" element={<ScheduleTasksPage />} />
           <Route path="admin" element={<AdminPage />} />
-          <Route index element={<Navigate to="/app/settings/account" replace />} />
+          <Route
+            index
+            element={<Navigate to="/app/settings/account" replace />}
+          />
         </Route>
       </Route>
       <Route path="/" element={<Navigate to="/app" replace />} />

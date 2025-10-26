@@ -247,6 +247,14 @@ declare global {
     }
   }
 
+  namespace Info {
+    interface AppInfo {
+      app: string;
+      version: string;
+      status: string;
+    }
+  }
+
   namespace API {
     // ============================================
     // Generic API Types
