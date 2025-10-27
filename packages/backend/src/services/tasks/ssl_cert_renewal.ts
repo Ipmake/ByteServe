@@ -37,7 +37,6 @@ export default async function ssl_cert_renewal() {
         version: 'draft-12',
         configDir: path.join(__dirname, "data", "ssl", ".config"),
         maintainerEmail: email,
-        server: "https://acme-staging-v02.api.letsencrypt.org/directory",
         store: require('greenlock-store-fs'),
         challenges: {
             'http-01': require('le-challenge-fs').create({
