@@ -108,6 +108,14 @@ export async function Init() {
                 description: "Comma-separated list of domains for Let's Encrypt SSL certificate renewal",
                 type: $Enums.ConfigType.STRING,
                 selectOptions: [],
+            },
+            {
+                category: "ssl",
+                key: "ssl_redirect_http",
+                value: "false",
+                description: "Redirect HTTP traffic to HTTPS",
+                type: $Enums.ConfigType.BOOLEAN,
+                selectOptions: [],
             }
         ],
         skipDuplicates: true,

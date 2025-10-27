@@ -8,6 +8,7 @@ import { getStorageDir } from './common/object-nesting';
 
 import http from 'http';
 import https from 'https';
+import { ConfigManager } from './services/configService';
 
 export let httpServer: http.Server | null = null;
 export let httpsServer: https.Server | null = null;
@@ -32,6 +33,13 @@ export async function startServer(port: number | string) {
             if (req.method === 'OPTIONS') {
                 return res.sendStatus(200);
             }
+
+            if (ConfigManager.Config["ssl_redirect_http"] === "true" && !req.secure) {
+                const host = req.headers.host;
+                const redirectUrl = `https://${host}${req.url}`;
+                return res.redirect(301, redirectUrl);
+            }
+
             next();
         });
 
