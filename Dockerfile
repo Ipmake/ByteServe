@@ -13,8 +13,10 @@ RUN npm run build
 # Build frontend
 WORKDIR /app/packages/frontend
 RUN npm run build
-# Build backend
+# Build prisma client
 WORKDIR /app/packages/backend
+RUN apt update && apt install -y openssl
+RUN npx prisma generate
 RUN npm run build
 # Copy built frontend into backend's www folder
 RUN cp -r /app/packages/frontend/dist /app/packages/backend/www
@@ -27,7 +29,7 @@ COPY --from=builder /app/packages/backend ./
 # Copy shared package
 COPY --from=builder /app/packages/shared ../shared
 # Install production dependencies for backend
-RUN apt-get update && apt-get install -y openssl
+RUN apt update && apt install -y openssl
 # Install only production dependencies
 RUN npm install --omit=dev
 # Copy Prisma files
