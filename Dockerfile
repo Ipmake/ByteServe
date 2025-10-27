@@ -13,6 +13,9 @@ RUN npm run build
 # Build frontend
 WORKDIR /app/packages/frontend
 RUN npm run build
+# Build backend
+WORKDIR /app/packages/backend
+RUN npm run build
 # Copy built frontend into backend's www folder
 RUN cp -r /app/packages/frontend/dist /app/packages/backend/www
 
