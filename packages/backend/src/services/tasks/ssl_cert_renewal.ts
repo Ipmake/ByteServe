@@ -99,4 +99,13 @@ export default async function ssl_cert_renewal() {
     });
 
     console.log("SSL certificate renewal completed successfully.");
+
+    await prisma.scheduleTask.update({
+        where: {
+            id: "ssl_cert_renewal"
+        },
+        data: {
+            lastRun: new Date()
+        }
+    });
 }
