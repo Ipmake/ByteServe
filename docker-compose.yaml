@@ -17,9 +17,7 @@ services:
     command: [sh, -c, "rm -f /data/dump.rdb && redis-server"]
 
   byteserve:
-    build:
-      context: ./
-      dockerfile: Dockerfile
+    image: ghcr.io/ipmake/byteserve:latest
     ports:
       - "80:80"
       - "443:443"
