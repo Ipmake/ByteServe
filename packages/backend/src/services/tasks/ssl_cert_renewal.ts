@@ -2,6 +2,7 @@ import path from "path";
 import { prisma } from "../..";
 import fs from "fs/promises";
 import { httpsServer } from "../../server";
+import acme from "acme-client";
 
 export default async function ssl_cert_renewal() {
     const config = await prisma.config.findMany({
@@ -31,46 +32,70 @@ export default async function ssl_cert_renewal() {
 
     console.log(`Starting SSL certificate renewal for domains: ${domains.join(", ")}`);
 
-    const Greenlock = (await import("greenlock")).default;
+    const isProduction = process.env.NODE_ENV === "production";
+    const acmeDirectoryUrl = isProduction
+        ? acme.directory.letsencrypt.production
+        : acme.directory.letsencrypt.staging;
+    const certBaseDir = path.join(__dirname, "data", "ssl")
 
-    const greenlock = Greenlock.create({
-        version: 'draft-12',
-        configDir: path.join(__dirname, "data", "ssl", ".config"),
-        maintainerEmail: email,
-        store: require('greenlock-store-fs'),
-        challenges: {
-            'http-01': require('le-challenge-fs').create({
-                webroot: path.join(__dirname, "data", "ssl", ".well-known", "acme-challenge"),
-                debug: true
-            })
-        },
-        debug: true,
-        // IMPORTANT: This tells Greenlock to skip HTTPS validation during challenge
-        agreeToTerms: true,
-        communityMember: false,
-        // Skip TLS verification for local/staging environments
-        skipChallengeTests: true,
-        skipDryRun: false
+    // Directory for challenge files
+    const challengeDir = path.join(certBaseDir, ".well-known", "acme-challenge");
+    await fs.mkdir(challengeDir, { recursive: true });
+
+    const client = new acme.Client({
+        directoryUrl: acmeDirectoryUrl,
+        accountKey: await acme.forge.createPrivateKey()
     });
 
-    const certs = await greenlock.register({
-        domains: domains,
-        email: email,
-        agreeTos: true,
-        challengeType: "http-01",
-        communityMember: false,
+    // Register account if needed
+    await client.createAccount({
+        termsOfServiceAgreed: true,
+        contact: [`mailto:${email}`]
     });
 
+    // Create certificate order
+    const order = await client.createOrder({ identifiers: domains.map(d => ({ type: "dns", value: d })) });
 
-    const certPath = path.join(__dirname, "data", "ssl", "cert.pem");
-    const keyPath = path.join(__dirname, "data", "ssl", "key.pem");
+    // Get authorizations and complete challenges
+    const authorizations = await client.getAuthorizations(order);
+    for (const authz of authorizations as acme.Authorization[]) {
+        const challenge = authz.challenges.find((c) => c.type === "http-01");
+        if (!challenge) throw new Error("No http-01 challenge found for domain " + authz.identifier.value);
 
-    await fs.writeFile(certPath, certs.cert);
-    await fs.writeFile(keyPath, certs.privkey);
+        const keyAuthorization = await client.getChallengeKeyAuthorization(challenge);
+
+        // Inline challenge file creation
+        const filePath = path.join(challengeDir, challenge.token);
+        await fs.writeFile(filePath, keyAuthorization, "utf8");
+        try {
+            await client.verifyChallenge(authz, challenge);
+            await client.completeChallenge(challenge);
+            await client.waitForValidStatus(challenge);
+        } finally {
+            // Inline challenge file removal
+            await fs.unlink(filePath).catch(() => {});
+        }
+    }
+
+    // Generate CSR and finalize order
+    const [key, csr] = await acme.forge.createCsr({
+        commonName: domains[0],
+        altNames: domains
+    });
+    await client.finalizeOrder(order, csr);
+
+    // Get certificate
+    const cert = await client.getCertificate(order);
+
+    // Save cert and key
+    const certPath = path.join(certBaseDir, "cert.pem");
+    const keyPath = path.join(certBaseDir, "key.pem");
+    await fs.writeFile(certPath, cert);
+    await fs.writeFile(keyPath, key);
 
     httpsServer?.setSecureContext({
-        key: certs.privkey,
-        cert: certs.cert,
+        key: key,
+        cert: cert,
     });
 
     console.log("SSL certificate renewal completed successfully.");
