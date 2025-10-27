@@ -29,3 +29,6 @@ coverage
 .vscode
 *.tgz
 *.swp
+
+/packages/backend/storage
+/packages/backend/data

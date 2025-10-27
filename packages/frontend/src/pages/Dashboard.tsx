@@ -92,7 +92,10 @@ function Dashboard() {
 
         <Grid container spacing={3}>
           {/* Stats Card */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{
+            xs: 12,
+            md: 6
+          }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -107,7 +110,10 @@ function Dashboard() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{
+            xs: 12,
+            md: 6
+          }}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -123,7 +129,9 @@ function Dashboard() {
           </Grid>
 
           {/* Users List */}
-          <Grid item xs={12}>
+          <Grid size={{
+            xs: 12
+          }}>
             <Paper sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h5">Users</Typography>
@@ -141,7 +149,11 @@ function Dashboard() {
               ) : (
                 <Grid container spacing={2}>
                   {users.map((user) => (
-                    <Grid item xs={12} sm={6} md={4} key={user.id}>
+                    <Grid size={{
+                      xs: 12,
+                      sm: 6,
+                      md: 4
+                    }} key={user.id}>
                       <Card variant="outlined">
                         <CardContent>
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>

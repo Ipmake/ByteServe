@@ -3,8 +3,6 @@ import {
   Box,
   Paper,
   TextField,
-  Avatar,
-  Divider,
   Grid,
   CircularProgress,
   Table,
@@ -17,7 +15,6 @@ import {
   Alert,
 } from "@mui/material";
 import {
-  AccountCircle as AccountIcon,
   DeleteForever,
   DeviceHub,
   Person,
@@ -31,7 +28,7 @@ export default function AccountPage() {
   const { user } = useAuthStore();
   const [userTokens, setUserTokens] = useState<Auth.UserTokenView[]>([]);
   const [loadingTokens, setLoadingTokens] = useState<boolean>(true);
-  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenError] = useState<string | null>(null);
 
   const fetchUserTokens = async () => {
     setLoadingTokens(true);

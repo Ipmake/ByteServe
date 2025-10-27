@@ -25,8 +25,6 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
-  Visibility,
-  VisibilityOff,
   AppRegistration as ApiIcon,
 } from "@mui/icons-material";
 import { apiService } from "../../../api.js";
@@ -43,7 +41,7 @@ export default function ApiPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCredential, setSelectedCredential] =
     useState<Credentials.Api.Credential | null>(null);
-  const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>(
+  const [showPassword] = useState<{ [key: string]: boolean }>(
     {}
   );
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -106,10 +104,6 @@ export default function ApiPage() {
     } catch (error) {
       console.error("Error deleting credential:", error);
     }
-  };
-
-  const togglePasswordVisibility = (id: string) => {
-    setShowPassword((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const copyToClipboard = async (text: string, field: string) => {

@@ -370,7 +370,7 @@ export default function Dashboard() {
           <ToggleButtonGroup
             value={selectedMetricGroup}
             exclusive
-            onChange={(e, newValue) => {
+            onChange={(_, newValue) => {
               if (newValue !== null) {
                 setSelectedMetricGroup(newValue);
               }
