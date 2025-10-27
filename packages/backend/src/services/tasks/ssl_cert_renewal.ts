@@ -36,7 +36,7 @@ export default async function ssl_cert_renewal() {
     const acmeDirectoryUrl = isProduction
         ? acme.directory.letsencrypt.production
         : acme.directory.letsencrypt.staging;
-    const certBaseDir = path.join(__dirname, "data", "ssl")
+    const certBaseDir = path.join(process.cwd(), "data", "ssl");
 
     // Directory for challenge files
     const challengeDir = path.join(certBaseDir, ".well-known", "acme-challenge");

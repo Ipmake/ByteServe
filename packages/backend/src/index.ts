@@ -44,6 +44,8 @@ redis.connect().then(() => {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.use('/.well-known/acme-challenge', express.static(path.join(process.cwd(), 'data', 'ssl', '.well-known', 'acme-challenge')));
+
 app.use('/dav/*', bodyParser.raw({
   type: (req) => {
     return true;
@@ -67,17 +69,6 @@ app.use(express.json({ limit: '50mb' }));
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Backend is running' });
-});
-
-app.use('/.well-known/acme-challenge', (req, res, next) => {
-  // Serve files from the challenge directory
-  const challengePath = path.join(__dirname, "data", "ssl", ".well-known", "acme-challenge", req.path);
-
-  if (fs.existsSync(challengePath)) {
-    res.sendFile(challengePath);
-  } else {
-    next();
-  }
 });
 
 const workerPool = new Piscina({
