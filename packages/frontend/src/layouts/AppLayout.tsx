@@ -144,8 +144,22 @@ export default function AppLayout() {
 
   const drawer = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <Toolbar>
-        <Tooltip title={`ByteServe Server V${info?.version || "N/A"}`} placement="right" arrow>
+      <Toolbar sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-start",
+        gap: "12px"
+      }}>
+        <img
+          src="/icon.png"
+          alt="ByteServe Icon"
+          style={{ width: 24, height: 24 }}
+        />
+        <Tooltip
+          title={`ByteServe V${info?.version || "N/A"}`}
+          placement="right"
+          arrow
+        >
           <Typography
             variant="h6"
             noWrap

@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { createTheme, CssBaseline, ThemeProvider } from "@mui/material";
 import { BrowserRouter } from "react-router-dom";
+import useInfoStore from "./states/infoStore.ts";
 
-const container = document.getElementById('root');
+const container = document.getElementById("root");
 if (!container) {
   throw new Error("Root container not found");
 }
@@ -17,6 +18,10 @@ root.render(
 );
 
 function Main() {
+  useEffect(() => {
+    useInfoStore.getState().fetchInfo();
+  }, []);
+
   const theme = createTheme({
     palette: {
       mode: "dark",

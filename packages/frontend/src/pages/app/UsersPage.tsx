@@ -32,7 +32,6 @@ import QuotaInput from '../../components/QuotaInput';
 import { SHA256 } from 'crypto-js';
 import { formatBytes } from '../../utils/format';
 import { apiService } from '../../api';
-import moment from 'moment';
 import AbsoluteDateDisplay from '../../components/AbsoulteDateDisplay';
 
 interface User {

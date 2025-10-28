@@ -95,7 +95,7 @@ export async function Init() {
         data: [
             {
                 key: "site_name",
-                value: "ByteServe Server",
+                value: "ByteServe",
                 description: "The name of the site displayed in the UI",
                 type: $Enums.ConfigType.STRING,
                 selectOptions: [],

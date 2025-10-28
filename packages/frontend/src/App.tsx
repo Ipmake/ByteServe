@@ -31,8 +31,6 @@ function App() {
 
     if (!authToken) return setIsLoaded(true);
 
-    useInfoStore.getState().fetchInfo();
-
     setInterval(() => useInfoStore.getState().fetchInfo(), 5 * 60 * 1000); // Refresh app info every 5 minutes
 
     // Fetch user data with the token

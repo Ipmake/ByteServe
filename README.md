@@ -1,258 +1,114 @@
-# ByteServe - TypeScript Monorepo
+<p align="center">
+  <img src="/assets/banner.png" alt="ByteServe Logo" width="378" height="102">
+</p>
 
-A modern TypeScript monorepo project with Express + Prisma backend and React + Material-UI frontend.
+# ByteServe - Multi-Threaded File Server & Object Storage Platform
 
-## 🏗️ Project Structure
+ByteServe is a self-hosted, multi-user, **multi-threaded** file server and object storage platform featuring a modern web interface, S3-compatible API, and WebDAV support.
 
-```
-ByteServe/
-├── packages/
-│   ├── backend/          # Express + Prisma API
-│   │   ├── src/
-│   │   │   ├── index.ts
-│   │   │   └── routes/
-│   │   ├── prisma/
-│   │   │   └── schema.prisma
-│   │   ├── data/         # PGlite database (gitignored)
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   ├── frontend/         # React + MUI + Vite
-│   │   ├── src/
-│   │   │   ├── App.tsx
-│   │   │   ├── api.ts
-│   │   │   ├── pages/
-│   │   │   ├── states/
-│   │   │   └── main.tsx
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   └── shared/           # Shared TypeScript types
-│       ├── src/
-│       │   ├── types.ts  # Global type declarations
-│       │   └── index.ts
-│       ├── package.json
-│       └── tsconfig.json
-├── package.json          # Root workspace config
-└── tsconfig.json         # Shared TypeScript config
-```
-
-## 🚀 Technologies
-
-### Backend
-- **Express.js** - Web framework
-- **Prisma** - ORM for database management
-- **PGlite** - Embedded PostgreSQL (no server required!)
-- **TypeScript** - Type-safe JavaScript
-- **Joi** - Request validation
-
-### Frontend
-- **React 18** - UI library
-- **Material-UI (MUI)** - Component library with custom dark theme
-- **Axios** - HTTP client
-- **React Router** - Client-side routing
-- **Zustand** - State management
-- **Vite** - Build tool
-- **TypeScript** - Type-safe JavaScript
-
-### Shared
-- **Global Type Declarations** - Shared types across frontend and backend
-- **No imports needed** - Types available globally via `Models.*` and `API.*` namespaces
-
-## 📋 Prerequisites
-
-- Node.js 18+ and npm
-- No database server needed! (Uses PGlite embedded database)
-
-## 🛠️ Setup Instructions
-
-### 1. Install Dependencies
-
-```bash
-# Install all workspace dependencies
-npm install
-```
-
-### 2. Configure Backend
-
-```bash
-# Navigate to backend and create .env file
-cd packages/backend
-cp .env.example .env
-```
-
-Edit `packages/backend/.env` with your database credentials:
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/byteserve?schema=public"
-PORT=3001
-NODE_ENV=development
-```
-
-### 3. Setup Prisma
-
-```bash
-# Generate Prisma Client
-npm run prisma:generate --workspace=backend
-
-# Run database migrations
-npm run prisma:migrate --workspace=backend
-```
-
-### 4. Configure Frontend
-
-```bash
-# Navigate to frontend and create .env file
-cd ../frontend
-cp .env.example .env
-```
-
-The default configuration should work:
-```env
-VITE_API_URL=http://localhost:3001/api
-```
-
-## 🏃 Running the Application
-
-### Development Mode (Both servers)
-
-```bash
-# From the root directory, start both backend and frontend
-npm run dev
-```
-
-This will start:
-- Backend API on http://localhost:3001
-- Frontend on http://localhost:3000
-
-### Run Individually
-
-```bash
-# Backend only
-npm run dev:backend
-
-# Frontend only
-npm run dev:frontend
-```
-
-## 🏗️ Building for Production
-
-```bash
-# Build both packages
-npm run build
-
-# Build individually
-npm run build:backend
-npm run build:frontend
-```
-
-## 📚 API Endpoints
-
-### Health Check
-- `GET /api/health` - Check if API is running
-
-### Users
-- `GET /api/users` - Get all users
-- `POST /api/users` - Create a new user
-  ```json
-  {
-    "email": "user@example.com",
-    "name": "John Doe"
-  }
-  ```
-
-### Files
-- `GET /api/files` - Get all files
-- `POST /api/files` - Create a file record
-  ```json
-  {
-    "filename": "file123.pdf",
-    "originalName": "document.pdf",
-    "mimeType": "application/pdf",
-    "size": 1024,
-    "userId": "user-uuid"
-  }
-  ```
-
-## 🗄️ Database Schema
-
-The project includes a basic Prisma schema with:
-- **User** model - Store user information
-- **File** model - Store file metadata
-
-View the full schema in `packages/backend/prisma/schema.prisma`
-
-### Prisma Commands
-
-```bash
-# Open Prisma Studio (visual database editor)
-npm run prisma:studio --workspace=backend
-
-# Create a new migration
-npm run prisma:migrate --workspace=backend
-
-# Generate Prisma Client after schema changes
-npm run prisma:generate --workspace=backend
-```
-
-## 🔧 Development Tools
-
-### TypeScript
-
-Both packages use TypeScript with strict mode enabled. Shared configuration is in the root `tsconfig.json`.
-
-### Workspace Commands
-
-```bash
-# Run a command in a specific workspace
-npm run <script> --workspace=<package-name>
-
-# Example: Run dev in backend
-npm run dev --workspace=backend
-```
-
-## 📝 Project Scripts
-
-### Root Package
-- `npm run dev` - Start both backend and frontend
-- `npm run build` - Build both packages
-- `npm run dev:backend` - Start backend only
-- `npm run dev:frontend` - Start frontend only
-
-### Backend Package
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Compile TypeScript to JavaScript
-- `npm run start` - Run production build
-
-### Frontend Package
-- `npm run dev` - Start Vite dev server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-
-## 🤝 Contributing
-
-1. Make changes in the appropriate package
-2. Test locally using `npm run dev`
-3. Build to ensure no errors: `npm run build`
-4. Commit your changes
-
-## 📄 License
-
-MIT
-
-## 🆘 Troubleshooting
-
-### Database Connection Issues
-- Ensure PostgreSQL is running
-- Check DATABASE_URL in `packages/backend/.env`
-- Run migrations: `npm run prisma:migrate --workspace=backend`
-
-### Frontend Can't Connect to Backend
-- Ensure backend is running on port 3001
-- Check VITE_API_URL in `packages/frontend/.env`
-- Verify CORS settings in backend
-
-### Port Already in Use
-- Backend: Change PORT in `packages/backend/.env`
-- Frontend: Change port in `packages/frontend/vite.config.ts`
+<p align="center">
+  <img src="/assets/screenshot1.png" alt="ByteServe Dashboard" width="800">
+  <br/>
+  <em>Screenshot (16:9)</em>
+</p>
 
 ---
 
-Built with ❤️ using TypeScript, Express, Prisma, React, and Material-UI
+## Overview
+
+This project provides a comprehensive solution for managing digital assets. Users can create **storage "buckets,"** upload/organize files and folders, manage access permissions, and interact with their data via multiple protocols (Web UI, API, S3, WebDAV). The backend utilizes Node.js (Express), TypeScript, Prisma ORM with PostgreSQL, and leverages **Worker threads for multi-threaded background task processing**. The frontend is a React SPA built with Vite and Material UI.
+
+---
+
+## Features
+
+* **Multi-User Management:** Supports multiple users with individual accounts and quotas.
+* **Bucket Management:** Create, manage, and delete storage buckets with configurable access levels (**private, public-read, public-write**) and storage quotas.
+* **File & Folder Management:** Hierarchical structure within buckets. Upload, download, rename, move, delete files and folders via the web UI.
+* **Protocol Support:**
+    * **S3-Compatible API:** Programmatic access using S3 tools and SDKs.
+    * **WebDAV:** Mount buckets as network drives or use WebDAV clients.
+* **Multi-Threading:** Utilizes worker threads for efficient background task processing (e.g. heavy file operations), enhancing performance and scalability.
+* **Scheduled Tasks:** Built-in scheduler for tasks like purging old objects/tokens, reporting stats, and SSL renewal.
+* **Configuration Management:** System-wide settings managed via the database and accessible through an admin UI.
+* **Statistics & Monitoring:** Tracks storage usage, requests served, and other metrics per bucket and globally.
+* **Modern Web UI:** React SPA with Material UI for a responsive user experience.
+* **Security:** Password hashing (client-side SHA256 before sending), separate credentials for API/protocols, CORS, and SSL support.
+* **Automatic SSL:** Built-in support for automatic SSL certificate generation and renewal via Let's Encrypt.
+* **File Requests:** Temporary, secure file request upload commands for windows & Linux to allow external users to upload files to specific buckets without needing an account.
+
+---
+
+## Setup Instructions
+
+**Prerequisites:**
+
+* Docker and Docker Compose
+* PostgreSQL Server (if not using Docker)
+* Redis-Stack Server (if not using Docker)
+
+**Using Docker Compose (Recommended):**
+
+```yaml
+services:
+  postgres:
+    image: postgres:17.6
+    command:
+      - postgres
+      - '-c'
+      - wal_level=logical
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: VerySecure
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis/redis-stack-server:latest
+    environment:
+      - REDIS_ARGS="--requirepass VerySecure"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  byteserve:
+    image: ghcr.io/ipmake/byteserve:latest
+    restart: on-failure:5
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:VerySecure@postgres:5432/postgres
+      - REDIS_URL=redis://default:VerySecure@redis:6379
+    volumes:
+      - ./data/storage:/app/storage
+      - /tmp/byteserve_temp:/app/storage/.temp
+      - byteserve_config:/app/data
+
+volumes:
+  postgres_data:
+  byteserve_config:
+```
+
+---
+
+## Running the Application
+
+**Using Docker Compose:**
+
+* Start: `docker compose up -d`
+* Stop: `docker compose down`
+* Logs: `docker compose logs -f byteserve`
