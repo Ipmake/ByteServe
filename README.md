@@ -95,7 +95,6 @@ services:
       - REDIS_URL=redis://default:VerySecure@redis:6379
     volumes:
       - ./data/storage:/app/storage
-      - /tmp/byteserve_temp:/app/storage/.temp
       - byteserve_config:/app/data
 
 volumes:
