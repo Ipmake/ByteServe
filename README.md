@@ -2,7 +2,7 @@
   <img src="/assets/banner.png" alt="ByteServe Logo" width="378" height="102">
 </p>
 
-# ByteServe - Multi-Threaded File Server & Object Storage Platform
+# ByteServe - The OpenSource Object Storage Platform
 
 ByteServe is a self-hosted, multi-user, **multi-threaded** file server and object storage platform featuring a modern web interface, S3-compatible API, and WebDAV support.
 
