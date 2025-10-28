@@ -7,6 +7,8 @@ import { prisma } from '../../../..';
 import { WebDAVUser } from '../types';
 import { parseWebDAVPath } from '../utils';
 import mime from 'mime-types';
+import { CheckUserQuota } from '../../../../common/file-upload';
+import crypto from 'crypto';
 
 
 /**
@@ -56,6 +58,7 @@ export async function handlePut(req: express.Request, res: express.Response) {
                 name: bucket,
                 id: { in: user.bucketIds },
             },
+            include: { owner: true },
         });
 
         if (!bucketObj) {
@@ -194,75 +197,33 @@ export async function handlePut(req: express.Request, res: express.Response) {
         });
 
         // --- QUOTA ENFORCEMENT ---
-        // Calculate total used for bucket
-        const bucketUsed = await prisma.object.aggregate({
-            where: { bucketId: bucketObj.id },
-            _sum: { size: true }
-        });
-        const bucketQuota = Number(bucketObj.storageQuota);
-        const bucketUsedSize = Number(bucketUsed._sum.size || 0);
-        // Calculate total used for user
-        const userUsed = await prisma.object.aggregate({
-            where: { bucket: { ownerId: user.userId } },
-            _sum: { size: true }
-        });
-        const userQuota = Number((await prisma.user.findUnique({ where: { id: user.userId } }))?.storageQuota);
-        const userUsedSize = Number(userUsed._sum.size || 0);
-        // Quota checks
-        if (bucketQuota > -1 && (bucketUsedSize + contentLength > bucketQuota)) {
-            console.warn(`[WebDAV PUT] Bucket quota exceeded for ${bucketObj.name}`);
-            res.setHeader('DAV', '1,2');
-            res.setHeader('Content-Type', 'application/xml; charset="utf-8"');
-            res.status(507).send(`<?xml version="1.0" encoding="utf-8"?>\n<d:error xmlns:d='DAV:'><d:quota-exceeded/></d:error>`);
-            return;
+        const quotaValid = CheckUserQuota(bucketObj, totalSize)
+        if (!quotaValid) {
+            console.log('[WebDAV PUT] Quota exceeded for user or bucket');
+            res.setHeader('Content-Length', '0');
+            return res.status(413).end(); // Payload Too Large
         }
-        if (userQuota > -1 && (userUsedSize + contentLength > userQuota)) {
-            console.warn(`[WebDAV PUT] User quota exceeded for ${user.username}`);
-            res.setHeader('DAV', '1,2');
-            res.setHeader('Content-Type', 'application/xml; charset="utf-8"');
-            res.status(507).send(`<?xml version="1.0" encoding="utf-8"?>\n<d:error xmlns:d='DAV:'><d:quota-exceeded/></d:error>`);
-            return;
-        }
-        // --- END QUOTA ENFORCEMENT ---
 
-        // Handle upload completion or errors
+        // Pipe request through progress tracker to write stream
+        req.pipe(progressTransform).pipe(writeStream);
+
+        // Handle stream completion
         await new Promise<void>((resolve, reject) => {
-            // Pipe: request -> progressTransform -> writeStream
-            req.pipe(progressTransform!).pipe(writeStream!);
             writeStream!.on('finish', () => {
-                console.log('[WebDAV PUT] Write stream finished:', tempFilePath);
+                console.log('[WebDAV PUT] Write stream finished for:', filename);
                 resolve();
             });
-            writeStream!.on('error', (error) => {
-                console.error('[WebDAV PUT] Write stream error:', error);
-                reject(error);
+            writeStream!.on('error', (err) => {
+                console.error('[WebDAV PUT] Write stream error for:', filename, err);
+                reject(err);
+            });
+            req.on('error', (err) => {
+                console.error('[WebDAV PUT] Request stream error for:', filename, err);
+                reject(err);
             });
             req.on('aborted', () => {
-                console.log('[WebDAV PUT] Upload aborted by client');
-                if (progressTransform) progressTransform.destroy();
-                if (writeStream) writeStream.destroy();
+                console.warn('[WebDAV PUT] Request aborted by client for:', filename);
                 reject(new Error('Upload aborted'));
-            });
-            req.on('error', (error) => {
-                console.error('[WebDAV PUT] Request error:', error);
-                if (progressTransform) progressTransform.destroy();
-                if (writeStream) writeStream.destroy();
-                reject(error);
-            });
-            req.on('close', () => {
-                console.log('[WebDAV PUT] Request closed for', filename);
-                console.log('[WebDAV PUT] Bytes received:', bytesReceived, 'Expected:', contentLength);
-                if (bytesReceived < contentLength) {
-                    console.warn('[WebDAV PUT] WARNING: Upload incomplete, client closed early.');
-                    // Only reject if upload is incomplete
-                    if (!writeStream!.writableFinished) {
-                        if (progressTransform) progressTransform.destroy();
-                        if (writeStream) writeStream.destroy();
-                        reject(new Error('Request closed prematurely'));
-                    }
-                } else {
-                    console.log('[WebDAV PUT] Upload complete, client closed connection after sending all bytes.');
-                }
             });
         });
 
@@ -281,7 +242,7 @@ export async function handlePut(req: express.Request, res: express.Response) {
             if (detected && typeof detected === 'string') {
                 contentType = detected;
             } else {
-                contentType = 'application/octet-stream';
+                contentType = 'applic1ation/octet-stream';
             }
         }
 
