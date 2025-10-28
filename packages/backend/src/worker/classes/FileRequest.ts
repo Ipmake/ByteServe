@@ -8,7 +8,7 @@ import fs from "fs/promises";
 import mime from "mime-types";
 
 export default class FileRequestWorker {
-    public static async CreateFileRequest(req: express.Request): Promise<Worker.WorkerResponse> {
+    public static async CreateFileRequest(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
         await WorkerTools.ensureWorkerReady();
 
         const auth = await WorkerTools.AuthUser(req.headers.authorization);
@@ -47,7 +47,7 @@ export default class FileRequestWorker {
         }
     }
 
-    public static async GetSH(req: express.Request): Promise<Worker.WorkerResponse> {
+    public static async GetSH(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
         await WorkerTools.ensureWorkerReady();
 
         const reqId = req.params.id;
@@ -67,7 +67,7 @@ export default class FileRequestWorker {
             body: [
                 '#!/bin/bash',
                 '# File Upload Script (Chunked)',
-                `# Usage: curl ${process.env.API_URL || req.protocol + '://' + req.get('host')}/api/filereq/${reqId}/sh | bash -s -- --file myfile.txt`,
+                `# Usage: curl ${process.env.API_URL || req.protocol + '://' + req.host}/api/filereq/${reqId}/sh | bash -s -- --file myfile.txt`,
                 '',
                 '# Parse arguments',
                 'FILE=""',
@@ -105,7 +105,7 @@ export default class FileRequestWorker {
                 '',
                 '# Setup',
                 'FILENAME="${SAVE_AS:-$(basename "$FILE")}"',
-                `BASE_URL="${process.env.API_URL || req.protocol + '://' + req.get('host')}/api/filereq/${reqId}"`,
+                `BASE_URL="${process.env.API_URL || req.protocol + '://' + req.host}/api/filereq/${reqId}"`,
                 'FILE_SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat -c%s "$FILE" 2>/dev/null)',
                 'TOTAL_CHUNKS=$(( (FILE_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))',
                 reqData.requireApiKey ? 'AUTH_HEADER=(-H "Authorization: Bearer $API_KEY")' : 'AUTH_HEADER=()',
@@ -165,7 +165,7 @@ export default class FileRequestWorker {
         }
     }
 
-    public static async GetPowerShell(req: express.Request): Promise<Worker.WorkerResponse> {
+    public static async GetPowerShell(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
         await WorkerTools.ensureWorkerReady();
 
         const reqId = req.params.id;
@@ -183,8 +183,8 @@ export default class FileRequestWorker {
             headers: { 'Content-Type': 'application/x-powershell' },
             body: [
                 '# File Upload Script (Chunked)',
-                `# Usage: iwr -useb ${process.env.API_URL || req.protocol + '://' + req.get('host')}/api/filereq/${reqId}/ps1 | iex`,
-                `# Or with args: & ([scriptblock]::Create((iwr -useb ${process.env.API_URL || req.protocol + '://' + req.get('host')}/api/filereq/${reqId}/ps1))) -File "myfile.txt"`,
+                `# Usage: iwr -useb ${process.env.API_URL || req.protocol + '://' + req.host}/api/filereq/${reqId}/ps1 | iex`,
+                `# Or with args: & ([scriptblock]::Create((iwr -useb ${process.env.API_URL || req.protocol + '://' + req.host}/api/filereq/${reqId}/ps1))) -File "myfile.txt"`,
                 '',
                 'param(',
                 '    [Parameter(Mandatory=$true)]',
@@ -212,7 +212,7 @@ export default class FileRequestWorker {
                 '$FileName = if ($SaveAs) { $SaveAs } else { $FileInfo.Name }',
                 '$FileSize = $FileInfo.Length',
                 '$TotalChunks = [Math]::Ceiling($FileSize / $ChunkSize)',
-                `$BaseUrl = "${process.env.API_URL || req.protocol + '://' + req.get('host')}/api/filereq/${reqId}"`,
+                `$BaseUrl = "${process.env.API_URL || req.protocol + '://' + req.host}/api/filereq/${reqId}"`,
                 '',
                 reqData.requireApiKey ? '$Headers = @{ "Authorization" = "Bearer $ApiKey" }' : '$Headers = @{}',
                 '',
@@ -300,7 +300,7 @@ export default class FileRequestWorker {
         }
     }
 
-    public static async PostUpload(req: express.Request): Promise<Worker.WorkerResponse> {
+    public static async PostUpload(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
         await WorkerTools.ensureWorkerReady();
 
         const reqId = req.params.id;
@@ -336,7 +336,7 @@ export default class FileRequestWorker {
         return { status: 200, body: { message: 'Upload started successfully' } };
     }
 
-    public static async PutUploadChunk(req: express.Request): Promise<Worker.WorkerResponse> {
+    public static async PutUploadChunk(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
         await WorkerTools.ensureWorkerReady();
 
         const reqId = req.params.id;
@@ -394,7 +394,7 @@ export default class FileRequestWorker {
         return { status: 200, body: { message: 'Chunk uploaded successfully' } };
     }
 
-    public static async PostCompleteUpload(req: express.Request): Promise<Worker.WorkerResponse> {
+    public static async PostCompleteUpload(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
         await WorkerTools.ensureWorkerReady();
 
         const reqId = req.params.id;
@@ -472,7 +472,7 @@ export default class FileRequestWorker {
         return { status: 200, body: { message: 'Upload completed successfully' } };
     }
 
-    public static async DeleteFileRequest(req: express.Request): Promise<Worker.WorkerResponse> {
+    public static async DeleteFileRequest(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
         await WorkerTools.ensureWorkerReady();
 
         const auth = await WorkerTools.AuthUser(req.headers.authorization);

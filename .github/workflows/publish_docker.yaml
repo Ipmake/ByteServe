@@ -1,17 +1,25 @@
 name: Build and Publish Docker Image
 
 on:
+  release:
+    types: [created]
   push:
-    branches:
-      - main
-      - master
     tags:
       - 'v*'
+  workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened]
     branches:
       - main
       - master
-  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+  id-token: write
+  # Require repo owner approval for PRs from forks
+  # This is enforced in repo settings: "Require approval for all outside collaborators"
 
 env:
   REGISTRY: ghcr.io

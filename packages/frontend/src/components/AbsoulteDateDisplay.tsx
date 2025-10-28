@@ -1,8 +1,7 @@
-import { Tooltip } from "@mui/material";
 import Typography, { TypographyProps } from "@mui/material/Typography";
 import moment from "moment";
 
-function RelativeDateDisplay({
+function AbsoluteDateDisplay({
   date,
   props = {
     variant: "body2",
@@ -13,12 +12,10 @@ function RelativeDateDisplay({
   props?: TypographyProps;
 }) {
   return (
-    <Tooltip title={moment(date).format("LLL")} arrow placement="top">
       <Typography {...props}>
-        {moment(date).fromNow()}
+        {moment(date).format("LLL")}
       </Typography>
-    </Tooltip>
   );
 }
 
-export default RelativeDateDisplay;
+export default AbsoluteDateDisplay;

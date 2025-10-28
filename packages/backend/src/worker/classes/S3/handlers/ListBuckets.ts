@@ -20,7 +20,12 @@ export async function S3WorkerHandlers_ListBuckets(req: Worker.WorkerRequest): P
             accessKey: accessKeyId
         },
         include: {
-            user: true
+            user: true,
+            bucketAccess: {
+                include: {
+                    bucket: true
+                }
+            }
         }
     });
 
@@ -48,12 +53,6 @@ export async function S3WorkerHandlers_ListBuckets(req: Worker.WorkerRequest): P
         };
     }
 
-    const buckets = await prisma.bucket.findMany({
-        where: {
-            ownerId: credentialsInDb.userId
-        }
-    });
-
     const xml = `
         <?xml version="1.0" encoding="UTF-8"?>
         <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
@@ -62,10 +61,10 @@ export async function S3WorkerHandlers_ListBuckets(req: Worker.WorkerRequest): P
                 <DisplayName>${credentialsInDb.user.username}</DisplayName>
             </Owner>
             <Buckets>
-                ${buckets.map(b => `
+                ${credentialsInDb.bucketAccess.map(ba => `
                 <Bucket>
-                    <Name>${b.name}</Name>
-                    <CreationDate>${b.createdAt.toISOString()}</CreationDate>
+                    <Name>${ba.bucket.name}</Name>
+                    <CreationDate>${ba.bucket.createdAt.toISOString()}</CreationDate>
                 </Bucket>
                 `).join('\n')}
             </Buckets>

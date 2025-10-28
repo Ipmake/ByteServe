@@ -44,6 +44,8 @@ import {
   getQuotaColor,
 } from "../../utils/format";
 import BucketConfigDrawer from "../../components/BucketConfigDrawer";
+import AbsoluteDateDisplay from "../../components/AbsoulteDateDisplay";
+import RelativeDateDisplay from "../../components/RelativeDateDisplay";
 
 export default function BucketsPage() {
   const navigate = useNavigate();
@@ -421,22 +423,10 @@ export default function BucketsPage() {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    {new Date(bucket.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    <AbsoluteDateDisplay date={bucket.createdAt} />
                   </TableCell>
                   <TableCell>
-                    {new Date(bucket.updatedAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    <RelativeDateDisplay date={bucket.updatedAt} />
                   </TableCell>
                   <TableCell align="right">
                     <IconButton

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -26,7 +26,7 @@ import {
   OutlinedInput,
   SelectChangeEvent,
   Tooltip,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -35,8 +35,9 @@ import {
   Visibility,
   VisibilityOff,
   CloudSync as WebDAVIcon,
-} from '@mui/icons-material';
-import { apiService } from '../../../api';
+} from "@mui/icons-material";
+import { apiService } from "../../../api";
+import AbsoluteDateDisplay from "../../../components/AbsoulteDateDisplay";
 
 interface WebDAVCredential {
   id: string;
@@ -63,9 +64,12 @@ export default function WebDAVPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedCredential, setSelectedCredential] = useState<WebDAVCredential | null>(null);
+  const [selectedCredential, setSelectedCredential] =
+    useState<WebDAVCredential | null>(null);
   const [selectedBuckets, setSelectedBuckets] = useState<string[]>([]);
-  const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
+  const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>(
+    {}
+  );
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,7 +86,7 @@ export default function WebDAVPage() {
       setCredentials(credsData);
       setBuckets(bucketsData);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
@@ -104,13 +108,13 @@ export default function WebDAVPage() {
       await fetchData();
       handleCreateClose();
     } catch (error) {
-      console.error('Error creating credential:', error);
+      console.error("Error creating credential:", error);
     }
   };
 
   const handleEditOpen = (credential: WebDAVCredential) => {
     setSelectedCredential(credential);
-    setSelectedBuckets(credential.bucketAccess.map(ba => ba.bucket.id));
+    setSelectedBuckets(credential.bucketAccess.map((ba) => ba.bucket.id));
     setEditDialogOpen(true);
   };
 
@@ -122,13 +126,16 @@ export default function WebDAVPage() {
 
   const handleEditSubmit = async () => {
     if (!selectedCredential) return;
-    
+
     try {
-      await apiService.updateWebDAVCredential(selectedCredential.id, selectedBuckets);
+      await apiService.updateWebDAVCredential(
+        selectedCredential.id,
+        selectedBuckets
+      );
       await fetchData();
       handleEditClose();
     } catch (error) {
-      console.error('Error updating credential:', error);
+      console.error("Error updating credential:", error);
     }
   };
 
@@ -150,17 +157,17 @@ export default function WebDAVPage() {
       await fetchData();
       handleDeleteClose();
     } catch (error) {
-      console.error('Error deleting credential:', error);
+      console.error("Error deleting credential:", error);
     }
   };
 
   const handleBucketChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value;
-    setSelectedBuckets(typeof value === 'string' ? value.split(',') : value);
+    setSelectedBuckets(typeof value === "string" ? value.split(",") : value);
   };
 
   const togglePasswordVisibility = (id: string) => {
-    setShowPassword(prev => ({ ...prev, [id]: !prev[id] }));
+    setShowPassword((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const copyToClipboard = async (text: string, field: string) => {
@@ -169,15 +176,24 @@ export default function WebDAVPage() {
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2000);
     } catch (error) {
-      console.error('Error copying to clipboard:', error);
+      console.error("Error copying to clipboard:", error);
     }
   };
 
-  const webdavUrl = `${window.location.protocol === 'https:' ? 'davs' : 'dav'}://${window.location.host}/dav`;
+  const webdavUrl = `${
+    window.location.protocol === "https:" ? "davs" : "dav"
+  }://${window.location.host}/dav`;
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
           WebDAV Credentials
         </Typography>
@@ -192,18 +208,22 @@ export default function WebDAVPage() {
 
       <Alert severity="info" sx={{ mb: 3 }}>
         <AlertTitle>Connection Information</AlertTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+          <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
             {webdavUrl}
           </Typography>
-          <Tooltip title={copiedField === 'url' ? 'Copied!' : 'Copy URL'}>
-            <IconButton size="small" onClick={() => copyToClipboard(webdavUrl, 'url')}>
+          <Tooltip title={copiedField === "url" ? "Copied!" : "Copy URL"}>
+            <IconButton
+              size="small"
+              onClick={() => copyToClipboard(webdavUrl, "url")}
+            >
               <CopyIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </Box>
         <Typography variant="body2" sx={{ mt: 1 }}>
-          Use the credentials below to connect with any WebDAV client (e.g., Windows Explorer, macOS Finder, Cyberduck).
+          Use the credentials below to connect with any WebDAV client (e.g.,
+          Windows Explorer, macOS Finder, Cyberduck).
         </Typography>
       </Alert>
 
@@ -222,7 +242,9 @@ export default function WebDAVPage() {
             {credentials.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  <WebDAVIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                  <WebDAVIcon
+                    sx={{ fontSize: 48, color: "text.disabled", mb: 2 }}
+                  />
                   <Typography variant="body1" color="text.secondary">
                     No WebDAV credentials yet. Create one to get started.
                   </Typography>
@@ -232,14 +254,23 @@ export default function WebDAVPage() {
               credentials.map((cred) => (
                 <TableRow key={cred.id}>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontFamily: "monospace" }}
+                      >
                         {cred.username}
                       </Typography>
-                      <Tooltip title={copiedField === `user-${cred.id}` ? 'Copied!' : 'Copy'}>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => copyToClipboard(cred.username, `user-${cred.id}`)}
+                      <Tooltip
+                        title={
+                          copiedField === `user-${cred.id}` ? "Copied!" : "Copy"
+                        }
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            copyToClipboard(cred.username, `user-${cred.id}`)
+                          }
                         >
                           <CopyIcon fontSize="small" />
                         </IconButton>
@@ -247,22 +278,35 @@ export default function WebDAVPage() {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {showPassword[cred.id] ? cred.password : '•'.repeat(16)}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontFamily: "monospace" }}
+                      >
+                        {showPassword[cred.id] ? cred.password : "•".repeat(16)}
                       </Typography>
-                      <Tooltip title={showPassword[cred.id] ? 'Hide' : 'Show'}>
-                        <IconButton 
-                          size="small" 
+                      <Tooltip title={showPassword[cred.id] ? "Hide" : "Show"}>
+                        <IconButton
+                          size="small"
                           onClick={() => togglePasswordVisibility(cred.id)}
                         >
-                          {showPassword[cred.id] ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          {showPassword[cred.id] ? (
+                            <VisibilityOff fontSize="small" />
+                          ) : (
+                            <Visibility fontSize="small" />
+                          )}
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title={copiedField === `pass-${cred.id}` ? 'Copied!' : 'Copy'}>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => copyToClipboard(cred.password, `pass-${cred.id}`)}
+                      <Tooltip
+                        title={
+                          copiedField === `pass-${cred.id}` ? "Copied!" : "Copy"
+                        }
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            copyToClipboard(cred.password, `pass-${cred.id}`)
+                          }
                         >
                           <CopyIcon fontSize="small" />
                         </IconButton>
@@ -270,7 +314,7 @@ export default function WebDAVPage() {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
                       {cred.bucketAccess.length === 0 ? (
                         <Typography variant="body2" color="text.secondary">
                           No access
@@ -288,9 +332,7 @@ export default function WebDAVPage() {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {new Date(cred.createdAt).toLocaleDateString()}
-                    </Typography>
+                    <AbsoluteDateDisplay date={cred.createdAt} />
                   </TableCell>
                   <TableCell align="right">
                     <IconButton
@@ -316,11 +358,17 @@ export default function WebDAVPage() {
       </TableContainer>
 
       {/* Create Dialog */}
-      <Dialog open={createDialogOpen} onClose={handleCreateClose} maxWidth="sm" fullWidth>
+      <Dialog
+        open={createDialogOpen}
+        onClose={handleCreateClose}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Create WebDAV Credential</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            A new WebDAV credential pair will be generated automatically. Select which buckets this credential can access.
+            A new WebDAV credential pair will be generated automatically. Select
+            which buckets this credential can access.
           </DialogContentText>
           <FormControl fullWidth sx={{ mt: 2 }}>
             <InputLabel>Bucket Access</InputLabel>
@@ -330,10 +378,12 @@ export default function WebDAVPage() {
               onChange={handleBucketChange}
               input={<OutlinedInput label="Bucket Access" />}
               renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                   {selected.map((value) => {
-                    const bucket = buckets.find(b => b.id === value);
-                    return <Chip key={value} label={bucket?.name} size="small" />;
+                    const bucket = buckets.find((b) => b.id === value);
+                    return (
+                      <Chip key={value} label={bucket?.name} size="small" />
+                    );
                   })}
                 </Box>
               )}
@@ -355,11 +405,17 @@ export default function WebDAVPage() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
+      <Dialog
+        open={editDialogOpen}
+        onClose={handleEditClose}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Edit Bucket Access</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Update which buckets this credential can access. The username and password cannot be changed.
+            Update which buckets this credential can access. The username and
+            password cannot be changed.
           </DialogContentText>
           <FormControl fullWidth sx={{ mt: 2 }}>
             <InputLabel>Bucket Access</InputLabel>
@@ -369,10 +425,12 @@ export default function WebDAVPage() {
               onChange={handleBucketChange}
               input={<OutlinedInput label="Bucket Access" />}
               renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                   {selected.map((value) => {
-                    const bucket = buckets.find(b => b.id === value);
-                    return <Chip key={value} label={bucket?.name} size="small" />;
+                    const bucket = buckets.find((b) => b.id === value);
+                    return (
+                      <Chip key={value} label={bucket?.name} size="small" />
+                    );
                   })}
                 </Box>
               )}
@@ -398,12 +456,17 @@ export default function WebDAVPage() {
         <DialogTitle>Delete Credential</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this WebDAV credential? This action cannot be undone and any connected clients will lose access.
+            Are you sure you want to delete this WebDAV credential? This action
+            cannot be undone and any connected clients will lose access.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteClose}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+          >
             Delete
           </Button>
         </DialogActions>

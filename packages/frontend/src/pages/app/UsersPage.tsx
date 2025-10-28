@@ -33,6 +33,7 @@ import { SHA256 } from 'crypto-js';
 import { formatBytes } from '../../utils/format';
 import { apiService } from '../../api';
 import moment from 'moment';
+import AbsoluteDateDisplay from '../../components/AbsoulteDateDisplay';
 
 interface User {
   id: string;
@@ -229,7 +230,7 @@ export default function UsersPage() {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    {moment(user.createdAt).format("LLLL")}
+                    <AbsoluteDateDisplay date={user.createdAt} />
                   </TableCell>
                   <TableCell align="right">
                     <IconButton

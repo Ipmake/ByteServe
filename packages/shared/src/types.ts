@@ -215,6 +215,8 @@ declare global {
       path: string;
       originalUrl: string;
       protocol: string;
+
+      host: string;
     }
 
     interface WorkerResponse {

@@ -13,6 +13,8 @@ export function ExpressRequestToWorkerRequest(req: express.Request): Worker.Work
         path: req.path,
         originalUrl: req.originalUrl,
         protocol: req.protocol,
+
+        host: req.get('host') || '',
     };
 }
 

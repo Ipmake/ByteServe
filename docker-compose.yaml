@@ -19,6 +19,8 @@ services:
 
   redis:
     image: redis/redis-stack-server:latest
+    environment:
+      - REDIS_ARGS="--requirepass VerySecure"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -38,9 +40,10 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://postgres:VerySecure@postgres:5432/postgres
-      - REDIS_CONNECTION_STRING=redis://redis:6379
+      - REDIS_URL=redis://default:VerySecure@redis:6379
     volumes:
       - ./data/storage:/app/storage
+      - /tmp/byteserve_temp:/app/storage/.temp
       - byteserve_config:/app/data
 
 volumes:

@@ -25,6 +25,7 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { apiService } from "../../../api";
+import RelativeDateDisplay from "../../../components/RelativeDateDisplay";
 
 interface ScheduleTask {
   id: string;
@@ -161,7 +162,7 @@ export default function ScheduleTasksPage() {
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  {task.lastRun ? new Date(task.lastRun).toLocaleString() : "-"}
+                  {task.lastRun ? (<RelativeDateDisplay date={task.lastRun} />) : "-"}
                 </TableCell>
                 <TableCell
                   align="right"

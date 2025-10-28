@@ -11,7 +11,6 @@ import postgres from 'postgres';
 import Piscina from 'piscina';
 import path from 'path';
 import os from 'os';
-import fs from 'fs';
 
 dotenv.config();
 
@@ -23,20 +22,13 @@ const psql = postgres(process.env.DATABASE_URL ?? "", {
 })
 
 const redis = createRedisClient({
-  url: process.env.REDIS_CONNECTION_STRING
+  url: process.env.REDIS_URL
 });
 
-redis.on('error', (err) => console.error('Redis Client Error', err));
+redis.on('error', (err) => console.error('[Main] Redis Client Error', err));
 
 redis.connect().then(() => {
   console.log('Connected to Redis successfully');
-
-  // flush all keys on startup for a clean state
-  redis.flushAll().then(() => {
-    console.log('Flushed all keys in Redis on startup');
-  }).catch((err) => {
-    console.error('Failed to flush Redis keys on startup:', err);
-  });
 }).catch((err) => {
   console.error('Failed to connect to Redis:', err);
 });
@@ -76,7 +68,7 @@ const workerPool = new Piscina({
   maxQueue: 1000,
   concurrentTasksPerWorker: Number(process.env.WORKER_TASKS_PER_THREAD ?? 8),
 
-  minThreads: 2,
+  minThreads: Math.min(Number(process.env.WORKER_POOL_SIZE ?? os.cpus().length), 2),
   maxThreads: Number(process.env.WORKER_POOL_SIZE ?? os.cpus().length),
 
   idleTimeout: 6 * 60 * 1000, // 5 minutes

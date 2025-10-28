@@ -1,5 +1,5 @@
 import { $Enums } from "@prisma/client";
-import { prisma } from "..";
+import { prisma, redis } from "..";
 import { HashPW } from "./authLoader";
 import { ConfigManager } from "../services/configService";
 import fs from 'fs/promises';
@@ -10,6 +10,13 @@ export async function Init() {
 
     // Initialize database connections
     await prisma.$connect();
+    if (!redis.isOpen) await redis.connect();
+
+    redis.flushAll().then(() => {
+        console.log('Flushed all keys in Redis on startup');
+    }).catch((err) => {
+        console.error('Failed to flush Redis keys on startup:', err);
+    });
 
     try {
         await prisma.$executeRaw`CREATE PUBLICATION alltables FOR ALL TABLES`;

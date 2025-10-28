@@ -47,6 +47,7 @@ import { useTransferStore } from "../../store/transferStore";
 import { TableVirtuoso } from "react-virtuoso";
 import { useAuthStore } from "../../states/authStore";
 import FileReqModal from "../../components/FileReqModal";
+import RelativeDateDisplay from "../../components/RelativeDateDisplay";
 
 export default function FileBrowserPage() {
   const { bucketId } = useParams<{ bucketId: string }>();
@@ -801,7 +802,7 @@ export default function FileBrowserPage() {
                         : "default",
                   }}
                 >
-                  {formatDate(object.updatedAt)}
+                  <RelativeDateDisplay date={object.updatedAt} />
                 </TableCell>
                 <TableCell align="right">
                   <Box

@@ -37,6 +37,7 @@ import {
   AppRegistration as S3Icon,
 } from '@mui/icons-material';
 import { apiService } from '../../../api.js';
+import AbsoluteDateDisplay from '../../../components/AbsoulteDateDisplay.js';
 
 interface Bucket {
   id: string;
@@ -275,9 +276,7 @@ export default function S3Page() {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {new Date(cred.createdAt).toLocaleDateString()}
-                    </Typography>
+                    <AbsoluteDateDisplay date={cred.createdAt} />
                   </TableCell>
                   <TableCell align="right">
                     <IconButton

@@ -7,7 +7,7 @@ import S3Worker from "./classes/S3";
 
 const prisma = new PrismaClient({});
 const redis = createRedisClient({
-    url: process.env.REDIS_CONNECTION_STRING
+    url: process.env.REDIS_URL
 });
 
 export { prisma, redis };

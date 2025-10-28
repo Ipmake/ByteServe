@@ -1,6 +1,6 @@
 import express from 'express';  
 import { AuthLoader } from '../utils/authLoader';
-import { prisma } from '..';
+import { prisma, redis } from '..';
 
 const router = express.Router();    
 
@@ -59,9 +59,29 @@ router.get('/me', AuthLoader, async (req, res) => {
         dailyStats[dayKey].apiRequestsCount += Number(stat.apiRequestsCount);
         dailyStats[dayKey].s3RequestsCount += Number(stat.s3RequestsCount);
         dailyStats[dayKey].webdavRequestsCount += Number(stat.webdavRequestsCount);
-        dailyStats[dayKey].usedSpace += Number(stat.usedSpace);
-        dailyStats[dayKey].objectCount += Number(stat.objectCount);
+        dailyStats[dayKey].usedSpace = Number(stat.usedSpace);
+        dailyStats[dayKey].objectCount = Number(stat.objectCount);
     }
+
+    const buckets = await prisma.bucket.findMany({
+        where: {
+            ownerId: user.id
+        }
+    })
+
+    for (const bucket of buckets) {
+        const todayKey = new Date().toISOString().split('T')[0];
+        
+        const statsInRedis: Stats.BucketStatsInRedis | null = await redis.hGetAll(`bucket:${bucket.id}:stats`) as any;
+        if (!statsInRedis) continue; 
+
+        dailyStats[todayKey].bytesServed += Number(statsInRedis.bytesServed || 0);
+        dailyStats[todayKey].requestsCount += Number(statsInRedis.requestsCount || 0);
+        dailyStats[todayKey].apiRequestsCount += Number(statsInRedis.apiRequestsServed || 0);
+        dailyStats[todayKey].s3RequestsCount += Number(statsInRedis.s3RequestsServed || 0);
+        dailyStats[todayKey].webdavRequestsCount += Number(statsInRedis.webdavRequestsServed || 0);
+    }
+
 
     res.json(dailyStats as Record<string, Stats.DailyUserBucketStats>);
 });
