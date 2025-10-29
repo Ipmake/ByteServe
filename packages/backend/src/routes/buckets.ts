@@ -5,6 +5,7 @@ import { AuthLoader } from '../utils/authLoader';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { $Enums } from '@prisma/client';
+import StaticVars from '../common/static';
 
 const router = Router();
 
@@ -210,12 +211,7 @@ router.post('/', AuthLoader, async (req, res: Response) => {
         storageQuota: BigInt(storageQuota),
         ownerId: user.id,
         BucketConfig: {
-          create: [
-            // { key: 'versioning', value: 'false', type: $Enums.ConfigType.BOOLEAN },
-            { key: 'cache_path_caching_enable', value: 'false', type: $Enums.ConfigType.BOOLEAN },
-            { key: 'cache_path_caching_ttl_seconds', value: '300', type: $Enums.ConfigType.NUMBER },
-            { key: 's3_clear_empty_parents', value: 'false', type: $Enums.ConfigType.BOOLEAN }
-          ]
+          create: StaticVars.Bucket_Config_Default
         }
       },
       include: {

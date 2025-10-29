@@ -38,6 +38,10 @@ export default class StorageWorker {
 
             // If no path, list bucket root
             if (pathSegments.length === 0) {
+                if(bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') return {
+                    status: 403,
+                    body: { error: 'May not list folder contents' }
+                };
                 const objects = await prisma.object.findMany({
                     where: {
                         bucketId: bucket.id,
@@ -79,6 +83,11 @@ export default class StorageWorker {
 
             // If it's a folder, list contents
             if (object.mimeType === 'folder') {
+                if(bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') return {
+                    status: 403,
+                    body: { error: 'May not list folder contents' }
+                };
+                
                 const children = await prisma.object.findMany({
                     where: {
                         bucketId: bucket.id,

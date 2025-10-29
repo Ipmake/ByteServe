@@ -5,6 +5,7 @@ import { ConfigManager } from "../services/configService";
 import fs from 'fs/promises';
 import path from 'path';
 import selfsigned from 'selfsigned';
+import StaticVars from "../common/static";
 
 export async function Init() {
 
@@ -92,39 +93,7 @@ export async function Init() {
     process.stdout.write("Config Present: ")
 
     await prisma.config.createMany({
-        data: [
-            {
-                key: "site_name",
-                value: "ByteServe",
-                description: "The name of the site displayed in the UI",
-                type: $Enums.ConfigType.STRING,
-                selectOptions: [],
-            },
-            {
-                category: "ssl",
-                key: "ssl_renewal_email",
-                value: "",
-                description: "Email address used for Let's Encrypt SSL certificate renewal",
-                type: $Enums.ConfigType.STRING,
-                selectOptions: [],
-            },
-            {
-                category: "ssl",
-                key: "ssl_cert_renewal_domains",
-                value: "",
-                description: "Comma-separated list of domains for Let's Encrypt SSL certificate renewal",
-                type: $Enums.ConfigType.STRING,
-                selectOptions: [],
-            },
-            {
-                category: "ssl",
-                key: "ssl_redirect_http",
-                value: "false",
-                description: "Redirect HTTP traffic to HTTPS",
-                type: $Enums.ConfigType.BOOLEAN,
-                selectOptions: [],
-            }
-        ],
+        data: StaticVars.System_Config_Default,
         skipDuplicates: true,
     })
 
@@ -157,32 +126,7 @@ export async function Init() {
 
     process.stdout.write("Schedule Tasks Present: ")
     await prisma.scheduleTask.createMany({
-        data: [
-            {
-                id: "purge_old_objects",
-                displayName: "Purge Old Objects",
-                cron: "0 0 * * *", // Every day at midnight
-                enabled: true
-            },
-            {
-                id: "purge_expired_tokens",
-                displayName: "Purge Expired Tokens",
-                cron: "0 * * * *", // Every hour
-                enabled: true
-            },
-            {
-                id: "report_hourly_stats",
-                displayName: "Report Hourly Stats",
-                cron: "59 * * * *", // Every hour at minute 59
-                enabled: true
-            },
-            {
-                id: "ssl_cert_renewal",
-                displayName: "SSL Certificate Renewal",
-                cron: "0 0 */20 * *", // Every 20 days at midnight
-                enabled: false
-            }
-        ],
+        data: StaticVars.System_ScheduledTasks_Default,
         skipDuplicates: true,
     })
     process.stdout.write("OK \n")
