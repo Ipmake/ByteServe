@@ -36,14 +36,27 @@ redis.connect().then(() => {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.use('*', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Depth, User-Agent, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK');
+  res.header('Access-Control-Expose-Headers', 'DAV, content-length, Allow');
+  res.header('X-Powered-By', 'ByteServe');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
 app.use('/.well-known/acme-challenge', express.static(path.join(process.cwd(), 'data', 'ssl', '.well-known', 'acme-challenge')));
 
-app.use('/dav/*', bodyParser.raw({
-  type: (req) => {
-    return true;
-  },
-  limit: '500mb'
-}));
+// app.use('/dav/*', bodyParser.raw({
+//   type: (req) => {
+//     return true;
+//   },
+//   limit: '500mb'
+// }));
 app.use('/s3/*', bodyParser.raw({
   type: (req) => {
     return true;

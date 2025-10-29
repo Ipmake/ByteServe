@@ -26,14 +26,6 @@ export async function startServer(port: number | string) {
 
         // Enable CORS for all requests
         app.use((req, res, next) => {
-            res.header('Access-Control-Allow-Origin', '*');
-            res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Depth, User-Agent, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control');
-            res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK');
-            res.header('Access-Control-Expose-Headers', 'DAV, content-length, Allow');
-            if (req.method === 'OPTIONS') {
-                return res.sendStatus(200);
-            }
-
             if (ConfigManager.Config["ssl_redirect_http"] === "true" && !req.secure) {
                 const host = req.headers.host;
                 const redirectUrl = `https://${host}${req.url}`;
