@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsc && concurrently \"tsc --watch\" \"node --watch dist/index.js\"",
