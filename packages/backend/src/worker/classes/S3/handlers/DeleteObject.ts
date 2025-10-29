@@ -14,6 +14,9 @@ export async function S3WorkerHandlers_DeleteObject(req: Worker.WorkerRequest): 
         where: {
             name: bucket
         },
+        include: {
+            BucketConfig: true
+        }
     });
 
     if (!bucketObj) return {
@@ -62,6 +65,27 @@ export async function S3WorkerHandlers_DeleteObject(req: Worker.WorkerRequest): 
             id: object.id
         }
     });
+
+    if(bucketObj.BucketConfig.find(c => c.key === 's3_clear_empty_parents')?.value === 'true' && object.parentId) {
+        const { _count } = await prisma.object.aggregate({
+            where: {
+                parentId: object.parentId,
+                bucketId: bucketObj.id
+            },
+            _count: {
+                id: true
+            }
+        }); 
+
+        if(_count.id === 0) {
+            console.log('Deleting empty parent folder:', object.parentId);
+            await prisma.object.delete({
+                where: {
+                    id: object.parentId
+                }
+            });
+        }
+    }
 
     await fs.unlink(WorkerTools.getObjectPath(bucketObj.name, object.id)).catch(() => { });
 

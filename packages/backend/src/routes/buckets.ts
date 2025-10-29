@@ -214,6 +214,7 @@ router.post('/', AuthLoader, async (req, res: Response) => {
             // { key: 'versioning', value: 'false', type: $Enums.ConfigType.BOOLEAN },
             { key: 'cache_path_caching_enable', value: 'false', type: $Enums.ConfigType.BOOLEAN },
             { key: 'cache_path_caching_ttl_seconds', value: '300', type: $Enums.ConfigType.NUMBER },
+            { key: 's3_clear_empty_parents', value: 'false', type: $Enums.ConfigType.BOOLEAN }
           ]
         }
       },
