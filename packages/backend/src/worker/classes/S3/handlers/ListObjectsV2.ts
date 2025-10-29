@@ -82,7 +82,9 @@ export async function S3WorkerHandlers_ListObjectsV2(req: Worker.WorkerRequest):
 
     const decodedPrefix = decodeURIComponent(safePrefixStr);
 
-    const object = await WorkerTools.resolvePath(bucketObj.name, decodedPrefix.split('/').filter(p => p));
+    const pathSegments = decodedPrefix.split('/').filter(p => p);
+
+    const object = await WorkerTools.resolvePath(bucketObj.name, pathSegments);
 
     const objects = await prisma.object.findMany({
         where: {
@@ -105,22 +107,23 @@ export async function S3WorkerHandlers_ListObjectsV2(req: Worker.WorkerRequest):
             <Delimiter>${delimiter || ''}</Delimiter>
             <KeyCount>${objects.length}</KeyCount>
                 ${objects.map(o => {
-        if (o.mimeType === 'folder') {
-            return `
-                    <CommonPrefixes>
-                        <Prefix>${o.filename}${o.filename.endsWith('/') ? '' : '/'}</Prefix>
-                    </CommonPrefixes>
+                    if (o.mimeType === 'folder') {
+                        return `
+                                <CommonPrefixes>
+                                    <Prefix>${o.filename}${o.filename.endsWith('/') ? '' : '/'}</Prefix>
+                                </CommonPrefixes>
+                                `;
+                    }
+
+                    return `
+                        <Contents>
+                            <Key>${pathSegments.join('/')}/${o.filename}</Key>
+                            <LastModified>${o.updatedAt.toISOString()}</LastModified>
+                            <ETag>"${o.id}"</ETag>
+                            <Size>${o.size}</Size>
+                        </Contents>
                     `;
-        }
-        return `
-                <Contents>
-                    <Key>${o.filename}</Key>
-                    <LastModified>${o.updatedAt.toISOString()}</LastModified>
-                    <ETag>"${o.id}"</ETag>
-                    <Size>${o.size}</Size>
-                </Contents>
-            `;
-    }).join('')}
+                }).join('')}
             <ContinuationToken>${continuationToken || ''}</ContinuationToken>
         </ListBucketResult>
     `;

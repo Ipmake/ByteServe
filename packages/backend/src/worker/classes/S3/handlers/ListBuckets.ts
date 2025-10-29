@@ -5,7 +5,6 @@ import WorkerTools from '../../WorkerTools';
 export async function S3WorkerHandlers_ListBuckets(req: Worker.WorkerRequest): Promise<Worker.WorkerResponse> {
     await WorkerTools.ensureWorkerReady();
 
-    console.log('Handling ListBuckets request');
     const accessKeyId = S3SigV4Auth.extractAccessKeyId(req.headers);
 
     if (!accessKeyId) {

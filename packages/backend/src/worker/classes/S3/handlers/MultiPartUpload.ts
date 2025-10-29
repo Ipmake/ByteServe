@@ -182,14 +182,21 @@ export async function S3WorkerHandlers_PostMultiPartUpload(req: Worker.WorkerReq
             });
         });
 
-        // Create object in database
-        const newObject = await prisma.object.create({
-            data: {
+        const existingObject = await prisma.object.findFirst({
+            where: {
                 bucketId: uploadSession.bucket.id,
                 filename: uploadSession.filename,
                 parentId: uploadSession.parent ? uploadSession.parent.id : null,
-                size: (await fs.stat(finalFilePath)).size,
+            }
+        });
+
+        const newObject = existingObject ?? await prisma.object.create({
+            data: {
+                bucketId: uploadSession.bucket.id,
+                filename: uploadSession.filename,
                 mimeType: uploadSession.mimeType,
+                size: (await fs.stat(finalFilePath)).size,
+                parentId: uploadSession.parent ? uploadSession.parent.id : null,
             }
         });
 
