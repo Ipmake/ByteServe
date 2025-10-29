@@ -51,6 +51,12 @@ app.use('/s3/*', bodyParser.raw({
   limit: '500mb'
 }));
 
+app.use("/s/*", (req, res, next) => {
+  const url = (req.params as any)[0];
+  // Do something with the param
+  return res.redirect(`/api/storage/${url}`);
+});
+
 setupWebDAVServer(app);
 setupS3Server(app);
 
