@@ -142,7 +142,7 @@ export default class StorageWorker {
                 const duplex = new MessagePortDuplex(data.port);
 
                 pipeline(
-                    fssync.createReadStream(physicalPath),
+                    fssync.createReadStream(physicalPath, { highWaterMark: 1024 * 1024 }),
                     duplex,
                     (err) => {
                         if (err) reject(err);

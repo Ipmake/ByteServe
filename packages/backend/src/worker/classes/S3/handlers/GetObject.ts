@@ -87,7 +87,7 @@ export async function S3WorkerHandlers_GetObject(data: {
             const duplex = new MessagePortDuplex(data.port);
 
             pipeline(
-                createReadStream(WorkerTools.getObjectPath(bucketObj.name, object.id)),
+                createReadStream(WorkerTools.getObjectPath(bucketObj.name, object.id), { highWaterMark: 1024 * 1024 }),
                 duplex,
                 (err) => {
                     if (err) reject(err);

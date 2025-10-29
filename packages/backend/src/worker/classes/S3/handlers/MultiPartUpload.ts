@@ -152,7 +152,7 @@ export async function S3WorkerHandlers_PostMultiPartUpload(req: Worker.WorkerReq
             const partsArray = uploadSession.tempFileParts.sort((a, b) => a.partNum - b.partNum);
 
             for (const part of partsArray) {
-                const partDataStream = fsSync.createReadStream(part.path);
+                const partDataStream = fsSync.createReadStream(part.path, { highWaterMark: 1024 * 1024 });
 
                 partDataStream.pipe(writeStream, { end: false });
 

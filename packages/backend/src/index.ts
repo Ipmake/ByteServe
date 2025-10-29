@@ -11,6 +11,7 @@ import postgres from 'postgres';
 import Piscina from 'piscina';
 import path from 'path';
 import os from 'os';
+import { constants } from 'os';
 
 dotenv.config();
 
@@ -32,6 +33,8 @@ redis.connect().then(() => {
 }).catch((err) => {
   console.error('Failed to connect to Redis:', err);
 });
+
+process.env.UV_THREADPOOL_SIZE = Math.max(os.cpus().length, 4).toString();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
