@@ -21,6 +21,7 @@ import { useAuthStore } from "../../../states/authStore";
 import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { apiService } from "../../../api";
+import useInfoStore from "../../../states/infoStore";
 
 export default function AdminPage() {
   const { user } = useAuthStore();
@@ -74,6 +75,7 @@ export default function AdminPage() {
     try {
       await apiService.updateConfigItemsBulk(changedItems);
       loadConfigs();
+      useInfoStore.getState().fetchInfo();
     } catch (e: any) {
       setError(e.message || "Failed to save configuration");
     } finally {

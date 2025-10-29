@@ -26,6 +26,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { apiService } from "../../../api";
 import RelativeDateDisplay from "../../../components/RelativeDateDisplay";
+import cronstrue from "cronstrue";
 
 interface ScheduleTask {
   id: string;
@@ -70,16 +71,40 @@ export default function ScheduleTasksPage() {
     setEditEnabled(task.enabled);
     setModalOpen(true);
     setEditCronParts(task.cron.split(" "));
+    setCronError(null);
   };
 
   function validateCron(parts: string[]): string | null {
-    if (parts.length !== 5) return "Cron must have 5 fields";
-    for (let i = 0; i < 5; i++) {
-      if (!/^([*]|\d+|\d+-\d+|\d+(,\d+)*|\d+\/\d+)$/.test(parts[i])) {
-        return `Invalid value in field ${i + 1}`;
-      }
+    // Check if all parts are filled
+    if (parts.some((part) => !part || part.trim() === "")) {
+      return "All cron fields are required";
     }
-    return null;
+
+    const cronString = parts.join(" ");
+    try {
+      cronstrue.toString(cronString);
+      return null;
+    } catch (error: any) {
+      // Try to identify which part is invalid
+      for (let i = 0; i < parts.length; i++) {
+        const testParts = ["*", "*", "*", "*", "*"];
+        testParts[i] = parts[i];
+        try {
+          cronstrue.toString(testParts.join(" "));
+        } catch {
+          return `Invalid cron part at position ${i + 1}`;
+        }
+      }
+      return error.message || "Invalid cron string";
+    }
+  }
+
+  function cronToHumanReadable(cronString: string): string | null {
+    try {
+      return cronstrue.toString(cronString);
+    } catch {
+      return null;
+    }
   }
 
   const handleSave = async () => {
@@ -113,13 +138,13 @@ export default function ScheduleTasksPage() {
   const handleRun = async (id: string) => {
     setRunLoading((prev) => ({ ...prev, [id]: true }));
     try {
+      setConfirmRunId(null);
       await apiService.runScheduleTask(id);
       fetchTasks();
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to run task");
     } finally {
       setRunLoading((prev) => ({ ...prev, [id]: false }));
-      setConfirmRunId(null);
     }
   };
 
@@ -162,7 +187,11 @@ export default function ScheduleTasksPage() {
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  {task.lastRun ? (<RelativeDateDisplay date={task.lastRun} />) : "-"}
+                  {task.lastRun ? (
+                    <RelativeDateDisplay date={task.lastRun} />
+                  ) : (
+                    "-"
+                  )}
                 </TableCell>
                 <TableCell
                   align="right"
@@ -170,7 +199,7 @@ export default function ScheduleTasksPage() {
                     gap: 8,
                   }}
                 >
-                  <Tooltip title="Run now">
+                  <Tooltip title={runLoading?.[task.id] ? "Running..." : "Run Now"}>
                     <span>
                       <IconButton
                         color="primary"
@@ -309,7 +338,7 @@ export default function ScheduleTasksPage() {
               variant="caption"
               color={cronError ? "error" : "text.secondary"}
             >
-              {cronError ? cronError : "Format: min hour day month weekday"}
+                {cronToHumanReadable(editCronParts.join(" ")) || cronError || "Invalid cron string"}
             </Typography>
           </Box>
           <Box

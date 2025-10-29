@@ -319,7 +319,7 @@ function Login() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                ByteServe
+                ByteServe {info?.version || "vX.X.X"}
               </a>
               .
             </Typography>
