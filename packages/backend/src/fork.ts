@@ -50,8 +50,6 @@ app.use('*', (req, res, next) => {
   next();
 });
 
-app.use(compression());
-
 app.use('/.well-known/acme-challenge', express.static(path.join(process.cwd(), 'data', 'ssl', '.well-known', 'acme-challenge')));
 
 // app.use('/dav/*', bodyParser.raw({
