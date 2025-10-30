@@ -137,7 +137,11 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error serving public file:', error);
-    return res.status(500).json({ error: 'Failed to serve file' });
+    try {
+      return res.status(500).json({ error: 'Failed to serve file' });
+    } catch (err) {
+      console.error('Error sending error response:', err);
+    }
   }
 });
 
