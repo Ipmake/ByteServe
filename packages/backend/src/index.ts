@@ -1,130 +1,82 @@
-import express, { Request, Response } from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
-import { startServer } from './server';
-import { setupWebDAVServer } from './services/connections/webdav/index';
-import bodyParser from 'body-parser';
-import { setupS3Server } from './services/connections/s3';
-import { createClient as createRedisClient } from "redis";
-import postgres from 'postgres';
-import Piscina from 'piscina';
-import path from 'path';
+import cluster from 'cluster';
 import os from 'os';
-import { constants } from 'os';
+import ScheduledTasksService from './services/scheduledTasks';
+import { PrismaClient } from '@prisma/client';
+import postgres from 'postgres';
+import { Init } from './utils/initServer';
+import { createClient as createRedisClient } from "redis";
+import path from 'path';
+import fs from 'fs/promises';
 
-dotenv.config();
+let prisma: PrismaClient | null = null;
 
-// Create Prisma client with the adapter
-const prisma = new PrismaClient({});
+let psql: postgres.Sql<{}> | null = null;
 
-const psql = postgres(process.env.DATABASE_URL ?? "", {
-  publications: 'alltables'
-})
+let redis: ReturnType<typeof createRedisClient> | null = null;
+export { prisma, psql, redis };
 
-const redis = createRedisClient({
-  url: process.env.REDIS_URL
-});
+if (cluster.isPrimary) {
+    (async () => {
+        console.log(`[Primary] ${process.pid} is running`);
 
-redis.on('error', (err) => console.error('[Main] Redis Client Error', err));
+        prisma = new PrismaClient();
+        psql = postgres(process.env.DATABASE_URL ?? "", {
+            publications: 'alltables'
+        });
+        redis = createRedisClient({
+            url: process.env.REDIS_URL
+        });
 
-redis.connect().then(() => {
-  console.log('Connected to Redis successfully');
-}).catch((err) => {
-  console.error('Failed to connect to Redis:', err);
-});
+        await redis.connect().then(() => {
+            console.log('Connected to Redis successfully');
+        }).catch((err) => {
+            console.error('Failed to connect to Redis:', err);
+        });
 
-process.env.UV_THREADPOOL_SIZE = Math.max(os.cpus().length, 4).toString();
+        await prisma.$connect();
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+        // Clean temporary files on startup...
+        console.log('Cleaning temporary files...');
+        const tempDir = path.join(process.cwd(), "storage", '.temp');
+        await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
+        await fs.mkdir(tempDir, { recursive: true }).catch(() => { });
+        console.log('Temporary files cleaned.');
 
-app.use('*', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK');
-  res.header('Access-Control-Expose-Headers', 'DAV, content-length, Allow');
-  res.header('X-Powered-By', 'ByteServe');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
+        await Init();
 
-  next();
-});
+        // PRIMARY ONLY: Run scheduled tasks here
+        const scheduledTasksService = new ScheduledTasksService();
+        console.log('[Primary] Scheduled tasks service started');
 
-app.use('/.well-known/acme-challenge', express.static(path.join(process.cwd(), 'data', 'ssl', '.well-known', 'acme-challenge')));
+        // Fork worker processes for handling requests
+        const numWorkers = parseInt(process.env.NUM_THREADS || `${os.cpus().length}`);
+        for (let i = 0; i < numWorkers; i++) {
+            cluster.fork();
+        }
 
-// app.use('/dav/*', bodyParser.raw({
-//   type: (req) => {
-//     return true;
-//   },
-//   limit: '500mb'
-// }));
-app.use('/s3/*', bodyParser.raw({
-  type: (req) => {
-    return true;
-  },
-  limit: '500mb'
-}));
+        cluster.on('exit', (worker, code, signal) => {
+            console.log(`Worker ${worker.process.pid} died. Restarting...`);
+            cluster.fork();
+        });
 
-app.use("/s/*", (req, res, next) => {
-  const url = (req.params as any)[0];
-  // Do something with the param
-  return res.redirect(`/api/storage/${url}`);
-});
+        // Graceful shutdown
+        process.on('SIGINT', async () => {
+            console.log('[Primary] Shutting down...');
 
-setupWebDAVServer(app);
-setupS3Server(app);
+            // Kill all workers
+            for (const id in cluster.workers) {
+                cluster.workers[id]?.kill();
+            }
 
-// All other middleware/routes after WebDAV
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+            // Wait for workers to die
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
-// Health check endpoint
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', message: 'Backend is running' });
-});
-
-const workerPool = new Piscina({
-  filename: path.resolve(__dirname, 'worker', 'worker.js'),
-  maxQueue: 1000,
-  concurrentTasksPerWorker: Number(process.env.WORKER_TASKS_PER_THREAD ?? 8),
-
-  minThreads: Math.min(Number(process.env.WORKER_POOL_SIZE ?? os.cpus().length), 2),
-  maxThreads: Number(process.env.WORKER_POOL_SIZE ?? os.cpus().length),
-
-  idleTimeout: 6 * 60 * 1000, // 5 minutes
-});
-
-console.log(`Worker pool configured with minThreads=${workerPool.options.minThreads} and maxThreads=${workerPool.options.maxThreads}`);
-
-// setInterval(async () => {
-//   const completed = workerPool.completed;
-//   const queueSize = workerPool.queueSize;
-//   const threads = workerPool.threads.length;
-//   const utilization = workerPool.utilization;
-//   const utilizationPercent = (utilization * 100).toFixed(2);
-//   const status = utilization < 0.3 ? '(Low)' : utilization < 0.7 ? '(Moderate)' : '(High)';
-
-//   console.log(`Worker Pool Status:
-//   Total Workers: ${threads},
-//   Completed Tasks: ${completed},
-//   Task Queue Size: ${queueSize},
-//   Utilization: ${utilizationPercent}% ${status}`);
-// }, 1000); // Log every second
-
-export { app, prisma, redis, psql, workerPool };
-
-startServer(PORT).catch((err) => {
-  console.error('Error starting server:', err);
-  process.exit(1);
-});
-
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  await prisma.$disconnect();
-  await redis.disconnect();
-  await workerPool.destroy();
-  console.log('Server shut down gracefully');
-  process.exit(0);
-});
+            process.exit(0);
+        });
+    })();
+} else {
+    // WORKERS: Only handle HTTP requests, NO scheduled tasks
+    import('./fork.js').then(() => {
+        console.log(`Worker ${process.pid} started`);
+    });
+}

@@ -1,7 +1,9 @@
-import { prisma } from "../..";
+import { prisma } from "../../";
 import StaticVars from "../../common/static";
 
 export default async function migrationRunConfPopulation() {
+    if (!prisma) throw new Error("Redis or Prisma not initialized");
+
     const buckets = await prisma.bucket.findMany({
         include: {
             BucketConfig: true
@@ -15,6 +17,8 @@ export default async function migrationRunConfPopulation() {
 
         await prisma.$transaction(
             chunk.map(bucket => {
+                if (!prisma) throw new Error("Redis or Prisma not initialized");
+
                 return prisma.bucketConfig.createMany({
                     data: StaticVars.Bucket_Config_Default.map(config => ({
                         ...config,

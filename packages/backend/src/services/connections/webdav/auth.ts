@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-import { prisma } from '../../..';
+import { prisma } from '../../../fork';
 import { WebDAVUser } from './types';
 import { ConfigManager } from '../../configService';
 

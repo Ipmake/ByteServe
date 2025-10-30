@@ -1,17 +1,18 @@
-import { $Enums } from "@prisma/client";
-import { prisma, redis } from "..";
-import { HashPW } from "./authLoader";
-import { ConfigManager } from "../services/configService";
+import { prisma, redis } from "../";
 import fs from 'fs/promises';
 import path from 'path';
 import selfsigned from 'selfsigned';
 import StaticVars from "../common/static";
+import crypto from 'crypto';
+
+export function HashPW(password: string) {
+    return crypto.createHash('sha256')
+        .update(`byteserve${password}byteserve`)
+        .digest('hex');
+}
 
 export async function Init() {
-
-    // Initialize database connections
-    await prisma.$connect();
-    if (!redis.isOpen) await redis.connect();
+    if (!redis || !prisma) throw new Error("Redis or Prisma not initialized");
 
     redis.flushAll().then(() => {
         console.log('Flushed all keys in Redis on startup');
@@ -133,7 +134,4 @@ export async function Init() {
 
     process.stdout.write("\n")
     console.log("Database checks complete.")
-
-    // Initialize Config Manager
-    new ConfigManager();
 }

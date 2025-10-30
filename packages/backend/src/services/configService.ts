@@ -1,14 +1,10 @@
-import { prisma, psql } from ".."
+import { prisma, psql } from "../fork"
 
 export class ConfigManager {
     public static Config: Record<string, string> = {};
 
     constructor() {
-        process.stdout.write("ConfigManager: ");
-
         this.init();
-
-        process.stdout.write("OK \n");
     }
 
     public async init() {

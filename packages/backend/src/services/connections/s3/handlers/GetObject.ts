@@ -1,40 +1,104 @@
 import express from 'express';
-import { DelegateExpressRequestToWorker, ExpressRequestToWorkerRequest } from '../../../../common/object';
-import { MessagePortDuplex } from '../../../../common/stream';
-import { workerPool } from '../../../..';
+import { prisma } from '../../../../fork';
+import { S3SigV4Auth } from '../../../../common/SigV4Util';
+import { getObjectPath, resolvePath } from '../../../../common/object-nesting';
+import { updateStatsInRedis } from '../../../../common/stats';
+import fs from 'fs/promises';
 
 export default function S3Handlers_GetObject(router: express.Router) {
     router.get('/:bucket/*', async (req, res) => {
-        const { port1, port2 } = new MessageChannel();
+        try {
+            const { bucket } = req.params;
+            const objectPath = (req.params as any)[0] || '';
 
-        port1.once('message', async (metadata) => {
-            try {
-                // Set headers based on metadata
-                res.status(200);
-                res.setHeader('Content-Type', metadata.mimeType);
-                res.setHeader('Content-Disposition', `inline; filename="${metadata.filename}"`);
-                res.setHeader('Content-Length', metadata.contentLength);
+            // Get bucket
+            const bucketObj = await prisma.bucket.findFirst({
+                where: {
+                    name: bucket
+                },
+            });
 
-                const duplex = new MessagePortDuplex(port1);
-
-                // Pipe the rest of the data
-                duplex.pipe(res);
-            } catch (e) {
-                res.status(500).send('Invalid metadata');
+            if (!bucketObj) {
+                return res.status(404).send('Bucket not found');
             }
-        });
 
-        const data = { port: port2, req: ExpressRequestToWorkerRequest(req) };
+            if (bucketObj.access === 'private') {
+                const accessKeyId = S3SigV4Auth.extractAccessKeyId(req.headers);
 
-        const workerRes = await workerPool.run(data, {
-            name: 'S3WorkerHandlers_GetObject',
-            transferList: [port2],
-        });
+                if (!accessKeyId) {
+                    return res.status(401).send('Unauthorized');
+                }
 
-        if (workerRes.status !== 200 || workerRes.body) {
-            port1.close();
-            port2.close();
-            return res.status(workerRes.status).json(workerRes.body);
+                const credentialsInDb = await prisma.s3Credential.findUnique({
+                    where: {
+                        accessKey: accessKeyId,
+                        bucketAccess: {
+                            some: { bucketId: bucketObj.id }
+                        }
+                    },
+                    include: {
+                        user: true
+                    }
+                });
+                if (!credentialsInDb) {
+                    return res.status(401).send('Unauthorized');
+                }
+
+                const result = S3SigV4Auth.verifyWithPathDetection(
+                    req.method,
+                    req.originalUrl,
+                    req.path,
+                    req.headers,
+                    req.method === 'PUT' || req.method === 'POST' ? req.body : undefined,
+                    accessKeyId,
+                    credentialsInDb.secretKey
+                );
+
+                if (!result.isValid) {
+                    return res.status(403).send('Invalid signature');
+                }
+            }
+
+            const pathSegments = objectPath.split('/').filter((p: string) => p);
+
+            const object = await resolvePath(bucketObj.name, pathSegments);
+
+            if (!object) {
+                return res.status(404).send('Object not found');
+            }
+
+            await updateStatsInRedis(bucketObj.id, {
+                requestsCount: 1,
+                s3RequestsServed: 1,
+                bytesServed: Number(object.size)
+            });
+
+            const file = await fs.open(getObjectPath(bucketObj.name, object.id), 'r');
+
+            const stream = file.createReadStream({ highWaterMark: 1024 * 1024 });
+
+            res.writeHead(200, {
+                'Content-Length': object.size.toString(),
+                'Content-Type': object.mimeType,
+                'ETag': `"${object.id}"`
+            });
+
+            stream.pipe(res);
+
+            stream.on('close', () => {
+                file.close();
+            });
+
+            stream.on('error', (err) => {
+                console.error('Stream error in GetObject handler:', err);
+                res.end();
+                file.close();
+            });
+
+            return;
+        } catch (err: any) {
+            console.error('Error in GetObject handler:', err);
+            return res.status(500).send(`Internal server error: ${err?.message || err}`);
         }
     });
 }

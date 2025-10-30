@@ -1,4 +1,4 @@
-import { redis } from "..";
+import { redis } from "../fork";
 
 export async function updateStatsInRedis(bucketId: string, stats: Partial<Stats.BucketStatsInRedis>): Promise<void> {
     const key = `bucket:${bucketId}:stats`;

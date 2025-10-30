@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { prisma, redis } from "..";
+import { prisma, redis } from "../fork";
 import path from "path";
 import crypto from "crypto";
 

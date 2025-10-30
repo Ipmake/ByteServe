@@ -1,6 +1,6 @@
 import express from 'express';
 import { AuthLoader } from '../utils/authLoader';
-import { prisma } from '..';
+import { prisma } from '../fork';
 import Joi from 'joi';
 import crypto from 'crypto';
 

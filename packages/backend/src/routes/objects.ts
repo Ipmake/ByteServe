@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../index';
+import { prisma } from '../fork';
 import Joi from 'joi';
 import { AuthLoader } from '../utils/authLoader';
 import * as fs from 'fs/promises';

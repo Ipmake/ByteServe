@@ -1,6 +1,6 @@
 import express from 'express';  
 import { AuthLoader } from '../utils/authLoader';
-import { prisma, redis } from '..';
+import { prisma, redis } from '../fork';
 
 const router = express.Router();    
 

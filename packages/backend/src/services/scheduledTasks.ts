@@ -1,8 +1,8 @@
 import cron, { ScheduledTask } from 'node-cron';
+import { prisma } from '../';
 
 import purgeOldObjects from './tasks/purge_old_objects';
 import purgeExpiredTokens from './tasks/purge_expired_tokens';
-import { prisma } from '..';
 import reportHourlyStats from './tasks/report_hourly_stats';
 import ssl_cert_renewal from './tasks/ssl_cert_renewal';
 
@@ -19,6 +19,8 @@ export default class ScheduledTasksService {
     }
 
     private async loadTasks() {
+        if (!prisma) throw new Error("Redis or Prisma not initialized");
+
         prisma.scheduleTask.findMany().then(tasks => {
             console.log('Loaded scheduled tasks from database.');
             // Clear existing tasks

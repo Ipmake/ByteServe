@@ -46,6 +46,5 @@ export function setupWebDAVServer(app: express.Application) {
     
     // Mount the WebDAV router
     app.use('/dav', webdavRouter);
-    
-    console.log('WebDAV server mounted at /dav');
+
 }

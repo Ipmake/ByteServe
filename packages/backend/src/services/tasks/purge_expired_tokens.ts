@@ -1,6 +1,8 @@
-import { prisma } from "../..";
+import { prisma } from "../../";
 
 export default async function purgeExpiredTokens() {
+    if (!prisma) throw new Error("Redis or Prisma not initialized");
+
     const now = new Date();
     const result = await prisma.authTokens.deleteMany({
         where: {

@@ -57,6 +57,10 @@ services:
       - postgres
       - '-c'
       - wal_level=logical
+      - '-c'
+      - max_wal_senders=128
+      - '-c'
+      - max_replication_slots=128
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: VerySecure

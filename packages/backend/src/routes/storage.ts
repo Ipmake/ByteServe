@@ -1,13 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { prisma, workerPool } from '../index';
+import { prisma } from '../fork';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import mime from 'mime-types';
-import { resolvePath } from '../common/object-nesting';
-import { ExpressRequestToWorkerRequest } from '../common/object';
-import { MessagePortDuplex } from '../common/stream';
+import { getObjectPath, resolvePath } from '../common/object-nesting';
+import { updateStatsInRedis } from '../common/stats';
 
 const router = Router();
 
@@ -27,36 +26,121 @@ const upload = multer({ storage });
 
 // GET /api/storage/:bucketName/* - Public file access
 router.get('/:bucketName/*', async (req: Request, res: Response) => {
-  const { port1, port2 } = new MessageChannel();
+  try {
+    const { bucketName } = req.params;
+    const filePath = req.params[0] || ''; // Everything after bucketName
+    const pathSegments = filePath.split('/').filter(s => s.length > 0);
 
-  port1.once('message', async (metadata) => {
-    try {
-      // Set headers based on metadata
-      res.status(200);
-      res.setHeader('Content-Type', metadata.mimeType);
-      res.setHeader('Content-Disposition', `inline; filename="${metadata.filename}"`);
-      res.setHeader('Content-Length', metadata.contentLength);
+    // Get bucket
+    const bucket = await prisma.bucket.findFirst({
+      where: { name: bucketName },
+      include: { BucketConfig: true },
+    });
 
-      const duplex = new MessagePortDuplex(port1);
-
-      // Pipe the rest of the data
-      duplex.pipe(res);
-    } catch (e) {
-      res.status(500).send('Invalid metadata');
+    if (!bucket) {
+      return res.status(404).json({ error: 'Bucket not found' });
     }
-  });
 
-  const data = { port: port2, req: ExpressRequestToWorkerRequest(req) };
+    // Check if bucket is public
+    if (bucket.access === 'private') {
+      return res.status(403).json({ error: 'This bucket is private' });
+    }
 
-  const workerRes = await workerPool.run(data, {
-    name: 'StorageWorker_PublicFileAccess',
-    transferList: [port2],
-  });
+    // If no path, list bucket root
+    if (pathSegments.length === 0) {
+      if (bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') return res.status(403).json({ error: 'May not list folder contents' });
+      const objects = await prisma.object.findMany({
+        where: {
+          bucketId: bucket.id,
+          parentId: null,
+        },
+        orderBy: [
+          { mimeType: 'desc' }, // folders first
+          { filename: 'asc' },
+        ],
+      });
 
-  if (workerRes.status !== 200 || workerRes.body) {
-    port1.close();
-    port2.close();
-    return res.status(workerRes.status).json(workerRes.body);
+      return res.status(200).json({
+        bucket: {
+          name: bucket.name,
+          access: bucket.access,
+        },
+        objects: objects.map(obj => ({
+          filename: obj.filename,
+          isFolder: obj.mimeType === 'folder',
+          size: Number(obj.size),
+          mimeType: obj.mimeType,
+          updatedAt: obj.updatedAt.toISOString(),
+        })),
+      });
+    }
+
+    // Resolve path to object
+    const object = await resolvePath(bucketName, pathSegments, {
+      enabled: bucket.BucketConfig.find(c => c.key === 'cache_path_caching_enable')?.value === 'true',
+      ttl: parseInt(bucket.BucketConfig.find(c => c.key === 'cache_path_caching_ttl_seconds')?.value || '300', 10),
+    });
+
+    if (!object) {
+      return res.status(404).json({ error: 'File or folder not found' });
+    }
+
+    // If it's a folder, list contents
+    if (object.mimeType === 'folder') {
+      if (bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') return res.status(403).json({ error: 'May not list folder contents' });
+      const children = await prisma.object.findMany({
+        where: {
+          bucketId: bucket.id,
+          parentId: object.id,
+        },
+        orderBy: [
+          { mimeType: 'desc' }, // folders first
+          { filename: 'asc' },
+        ],
+      });
+
+      return res.status(200).json({
+        bucket: {
+          name: bucket.name,
+          access: bucket.access,
+        },
+        currentPath: filePath,
+        objects: children.map(obj => ({
+          filename: obj.filename,
+          isFolder: obj.mimeType === 'folder',
+          size: Number(obj.size),
+          mimeType: obj.mimeType,
+          updatedAt: obj.updatedAt.toISOString(),
+        })),
+      });
+    }
+
+    // It's a file - serve it
+    const physicalPath = getObjectPath(bucketName, object.id);
+
+    await updateStatsInRedis(bucket.id, {
+      requestsCount: 1,
+      bytesServed: Number(object.size),
+      apiRequestsServed: 1,
+    });
+
+    const fileStream = await fs.open(physicalPath, 'r');
+    const stream = fileStream.createReadStream({ highWaterMark: 1024 * 1024 }); // 1MB chunk size
+
+    stream.on('error', (err) => {
+      console.error('Error reading file stream:', err);
+      return res.status(500).end();
+    });
+
+    res.setHeader('Content-Type', object.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${object.filename}"`);
+
+    res.status(200);
+
+    stream.pipe(res);
+  } catch (error) {
+    console.error('Error serving public file:', error);
+    return res.status(500).json({ error: 'Failed to serve file' });
   }
 });
 

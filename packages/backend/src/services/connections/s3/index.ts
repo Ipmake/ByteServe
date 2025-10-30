@@ -24,6 +24,4 @@ export function setupS3Server(app: express.Application) {
     S3Handlers_DeleteObject(router);
 
     app.use('/s3', router);
-
-    console.log("S3 server mounted at /s3");
 }

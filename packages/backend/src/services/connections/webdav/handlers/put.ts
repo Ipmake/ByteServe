@@ -3,7 +3,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { Transform } from 'stream';
-import { prisma } from '../../../..';
+import { prisma } from '../../../../fork';
 import { WebDAVUser } from '../types';
 import { parseWebDAVPath } from '../utils';
 import mime from 'mime-types';

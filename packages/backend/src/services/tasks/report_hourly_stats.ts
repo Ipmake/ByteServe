@@ -1,6 +1,7 @@
-import { prisma, redis, workerPool } from "../..";
+import { prisma, redis } from "../../";
 
 export default async function reportHourlyStats() {
+    if(!redis || !prisma) throw new Error("Redis or Prisma not initialized");
     const now = new Date();
     now.setMinutes(0, 0, 0); // Round down to the current hour
 
@@ -91,8 +92,8 @@ export default async function reportHourlyStats() {
 
             requestsServed: 0, // Placeholder, implement actual request counting if needed
 
-            workerCount: workerPool.threads.length,
-            utilizationPercent: Number.parseFloat((workerPool.utilization * 100).toFixed(2)),
+            workerCount: 0,
+            utilizationPercent: 0,
 
             timestamp: now,
         },
@@ -107,8 +108,8 @@ export default async function reportHourlyStats() {
 
             requestsServed: 0, // Placeholder, implement actual request counting if needed
 
-            workerCount: workerPool.threads.length,
-            utilizationPercent: Number.parseFloat((workerPool.utilization * 100).toFixed(2)),
+            workerCount: 0,
+            utilizationPercent: 0,
         },
     });
 

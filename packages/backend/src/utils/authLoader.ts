@@ -1,4 +1,4 @@
-import { prisma } from "..";
+import { prisma } from "../fork";
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { User, AuthTokens } from '@prisma/client';

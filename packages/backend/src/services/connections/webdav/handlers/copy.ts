@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { prisma } from '../../../..';
+import { prisma } from '../../../../fork';
 import { WebDAVUser } from '../types';
 import { parseWebDAVPath } from '../utils';
 

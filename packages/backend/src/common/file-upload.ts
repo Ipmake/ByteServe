@@ -3,7 +3,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { Prisma } from "@prisma/client";
-import { prisma } from "..";
+import { prisma } from "../fork";
 
 export const multerStorage = multer.diskStorage({
   destination: async (req, file, cb) => {

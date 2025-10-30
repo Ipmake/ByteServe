@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireAdmin } from './users';
-import { prisma } from '..';
+import { prisma } from '../fork';
 import Joi from 'joi';
 
 const router = express.Router();

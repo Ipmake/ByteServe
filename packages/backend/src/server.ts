@@ -1,20 +1,18 @@
 import path from 'path';
 import fs from 'fs/promises';
-import { app } from './';
+import { app, redis } from './fork';
 import express from 'express';
-import { Init } from './utils/initServer';
-import ScheduledTasksService from './services/scheduledTasks';
 import { getStorageDir } from './common/object-nesting';
+import { ConfigManager } from './services/configService';
 
 import http from 'http';
 import https from 'https';
-import { ConfigManager } from './services/configService';
 
 export let httpServer: http.Server | null = null;
 export let httpsServer: https.Server | null = null;
 
 export async function startServer(port: number | string) {
-    await Init();
+    const configManager = new ConfigManager();
 
     const __dirname = process.cwd();
     const routesDir = path.join(__dirname, 'dist', 'routes');
@@ -41,8 +39,6 @@ export async function startServer(port: number | string) {
         const { registerRoutes } = await import('./utils/routeloader.js');
         await registerRoutes(app, routesDir, '/api');
 
-        const scheduledTasksService = new ScheduledTasksService();
-
         // Check if www directory exists
         try {
             await fs.access(wwwDir);
@@ -61,8 +57,6 @@ export async function startServer(port: number | string) {
                 });
             });
         } catch {
-            console.log('www directory not found, skipping static file serving');
-
             // Just handle API routes if no frontend
             app.use((req, res, next) => {
                 if (req.path.startsWith('/api/')) return next();
@@ -72,15 +66,8 @@ export async function startServer(port: number | string) {
             });
         }
 
-        // Clean .temp directory on startup
-        console.log('Cleaning temporary files...');
-        const tempDir = path.join(getStorageDir(), '.temp');
-        await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
-        await fs.mkdir(tempDir, { recursive: true }).catch(() => { });
-        console.log('Temporary files cleaned.');
-
         httpServer = http.createServer({
-            highWaterMark: 1024 * 1024 * 2, // 2MB buffer size
+            highWaterMark: 1024 * 1024 * 1, // 1MB buffer size
             noDelay: true,
             keepAlive: true,
             keepAliveTimeout: 60000,
@@ -91,13 +78,33 @@ export async function startServer(port: number | string) {
             key: await fs.readFile(path.join(__dirname, 'data', 'ssl', 'key.pem')),
             cert: await fs.readFile(path.join(__dirname, 'data', 'ssl', 'cert.pem')),
 
-            highWaterMark: 1024 * 1024 * 2, // 2MB buffer size
+            highWaterMark: 1024 * 1024 * 1, // 1MB buffer size
             noDelay: true,
             keepAlive: true,
             keepAliveTimeout: 60000,
             keepAliveInitialDelay: 30000,
             maxHeaderSize: 64 * 1024, // 64KB
         }, app);
+
+        const pubRedis = redis.duplicate();
+        await pubRedis.connect();
+
+        pubRedis.subscribe('cert_update', async (message) => {
+            console.log('Received cert_update message, reloading SSL certificates...');
+            try {
+                const newKey = await fs.readFile(path.join(__dirname, 'data', 'ssl', 'key.pem'));
+                const newCert = await fs.readFile(path.join(__dirname, 'data', 'ssl', 'cert.pem'));
+
+                httpsServer?.setSecureContext({
+                    key: newKey,
+                    cert: newCert
+                });
+
+                console.log('SSL certificates reloaded successfully.');
+            } catch (err) {
+                console.error('Failed to reload SSL certificates:', err);
+            }
+        });
 
         httpServer.listen(80);
         httpsServer.listen(443);

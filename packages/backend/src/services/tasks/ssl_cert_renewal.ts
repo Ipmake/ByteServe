@@ -1,10 +1,11 @@
 import path from "path";
-import { prisma } from "../..";
+import { prisma, redis } from "../../";
 import fs from "fs/promises";
-import { httpsServer } from "../../server";
 import acme from "acme-client";
 
 export default async function ssl_cert_renewal() {
+    if (!redis || !prisma) throw new Error("Redis or Prisma not initialized");
+
     const config = await prisma.config.findMany({
         where: {
             category: "ssl",
@@ -93,10 +94,7 @@ export default async function ssl_cert_renewal() {
     await fs.writeFile(certPath, cert);
     await fs.writeFile(keyPath, key);
 
-    httpsServer?.setSecureContext({
-        key: key,
-        cert: cert,
-    });
+    redis.publish("cert_update", "new_cert");
 
     console.log("SSL certificate renewal completed successfully.");
 

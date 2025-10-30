@@ -1,12 +1,6 @@
 import { Router } from 'express';
-import { prisma } from '../index';
+import { prisma, redis } from '../fork';
 import { requireAdmin } from './users';
-
-import purgeOldObjects from '../services/tasks/purge_old_objects';
-import purgeExpiredTokens from '../services/tasks/purge_expired_tokens';
-import reportHourlyStats from '../services/tasks/report_hourly_stats';
-import ssl_cert_renewal from '../services/tasks/ssl_cert_renewal';
-import migration_run_confpopulation from '../services/tasks/migration_run_confpopulation';
 
 const router = Router();
 
@@ -38,32 +32,21 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 router.post('/:id/run', requireAdmin, async (req, res) => {
   const taskId = req.params.id;
 
-  try {
-    switch (taskId) {
-      case 'purge_old_objects':
-        await purgeOldObjects();
-        break;
-      case 'purge_expired_tokens':
-        await purgeExpiredTokens();
-        break;
-      case 'report_hourly_stats':
-        await reportHourlyStats();
-        break;
-      case 'ssl_cert_renewal':
-        await ssl_cert_renewal();
-        break;
-      case 'migration_run_confpopulation':
-        await migration_run_confpopulation();
-        break;
-      default:
-        return res.status(400).json({ error: 'Unknown task ID' });
-    }
+  redis.publish('run_task', taskId);
 
-    res.json({ message: `Task ${taskId} executed successfully` });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to execute task' });
-    console.error(`Error executing task ${taskId}:`, err);
-  }
+  const listenRedis = redis.duplicate();
+  await listenRedis.connect();
+
+  // Await a response from the task worker (optional)
+  const response = await new Promise((resolve) => {
+    listenRedis.once(`task_response:${taskId}`, (message) => {
+      resolve(message);
+    });
+  });
+
+  listenRedis.destroy()
+
+  res.json({ message: `Task ${taskId} triggered`, response });
 });
 
 export default router;

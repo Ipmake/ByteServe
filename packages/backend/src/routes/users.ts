@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { AuthUser, HashPW } from '../utils/authLoader';
-import { prisma } from '..';
+import { prisma } from '../fork';
 import Joi from 'joi';
 
 const router = express.Router();

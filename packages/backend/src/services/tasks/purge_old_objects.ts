@@ -1,9 +1,10 @@
-import { prisma } from "../..";
+import { prisma } from "../../";
 import fs from "fs";
 import path from "path";
-import { getStorageDir } from "../../common/object-nesting";
 
 export default async function purgeOldObjects() {
+    if (!prisma) throw new Error("Redis or Prisma not initialized");
+
     const dbObjects = await prisma.object.findMany({
         include: {
             bucket: true
@@ -18,7 +19,7 @@ export default async function purgeOldObjects() {
     let purgedCount = 0;
 
     // scan the storage directory find all objects within their buckets
-    const storageDir = getStorageDir();
+    const storageDir = path.join(process.cwd(), 'storage');
     const bucketDirs = await fs.promises.readdir(storageDir);
 
     for (const bucketName of bucketDirs) {
