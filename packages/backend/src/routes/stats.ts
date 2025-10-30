@@ -110,12 +110,6 @@ router.get('/me', AuthLoader, async (req, res) => {
             dailyStats[todayKey].apiRequestsCount += Number(statsInRedis.apiRequestsServed || 0);
             dailyStats[todayKey].s3RequestsCount += Number(statsInRedis.s3RequestsServed || 0);
             dailyStats[todayKey].webdavRequestsCount += Number(statsInRedis.webdavRequestsServed || 0);
-
-            // NOTE: Your original code doesn't update `usedSpace` or `objectCount` from Redis.
-            // If `statsInRedis` *does* contain the current absolute values,
-            // you might want to reset `dailyStats[todayKey].usedSpace = 0;` before this loop
-            // and add `dailyStats[todayKey].usedSpace += Number(statsInRedis.usedSpace || 0);` here.
-            // But I've left it as-is to match your request.
         }
     }
 
