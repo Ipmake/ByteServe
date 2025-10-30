@@ -30,23 +30,33 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 });
 
 router.post('/:id/run', requireAdmin, async (req, res) => {
-  const taskId = req.params.id;
+  try {
+    const taskId = req.params.id;
 
-  redis.publish('run_task', taskId);
+    redis.publish('run_task', taskId);
 
-  const listenRedis = redis.duplicate();
-  await listenRedis.connect();
+    const listenRedis = redis.duplicate();
+    await listenRedis.connect();
 
-  // Await a response from the task worker (optional)
-  const response = await new Promise((resolve) => {
-    listenRedis.once(`task_response:${taskId}`, (message) => {
-      resolve(message);
+    // Await a response from the task worker (optional)
+    const response: string = await new Promise((resolve) => {
+      listenRedis.subscribe(`task_response:${taskId}`, (message) => {
+        resolve(message);
+      });
     });
-  });
 
-  listenRedis.destroy()
+    await listenRedis.unsubscribe(`task_response:${taskId}`);
+    listenRedis.destroy();
 
-  res.json({ message: `Task ${taskId} triggered`, response });
+    if (response.startsWith("Error running")) {
+      return res.status(500).json({ error: response });
+    }
+
+    res.status(200).json({ message: `Task ${taskId} triggered`, response });
+  }
+  catch (err) {
+    res.status(500).json({ error: 'Failed to run task' });
+  }
 });
 
 export default router;
