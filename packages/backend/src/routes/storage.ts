@@ -125,7 +125,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     });
 
     const fileStream = await fs.open(physicalPath, 'r');
-    const stream = fileStream.createReadStream({ highWaterMark: 1024 * 1024 }); // 1MB chunk size
+    const stream = fileStream.createReadStream({ highWaterMark: 1024 * 1024 * 5 }); // 5MB chunk size
 
     stream.on('error', (err) => {
       console.error('Error reading file stream:', err);
