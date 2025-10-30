@@ -5,7 +5,7 @@ import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import mime from 'mime-types';
-import { getObjectPath, resolvePath } from '../common/object-nesting';
+import { getObjectPath, getStorageDir, resolvePath } from '../common/object-nesting';
 import { updateStatsInRedis } from '../common/stats';
 
 const router = Router();
@@ -124,21 +124,11 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       apiRequestsServed: 1,
     });
 
-    const fileStream = await fs.open(physicalPath, 'r');
-    const stream = fileStream.createReadStream({ highWaterMark: 1024 * 1024 * 5 }); // 5MB chunk size
-
-    stream.on('error', (err) => {
-      console.error('Error reading file stream:', err);
-      return res.status(500).end();
-    });
-
     res.setHeader('Content-Type', object.mimeType);
     res.setHeader('Content-Length', object.size.toString());
     res.setHeader('Content-Disposition', `inline; filename="${object.filename}"`);
 
-    res.status(200);
-
-    stream.pipe(res);
+    res.status(200).download(path.join(getStorageDir(), bucket.name), object.id)
   } catch (error) {
     console.error('Error serving public file:', error);
     return res.status(500).json({ error: 'Failed to serve file' });
