@@ -67,7 +67,7 @@ export async function startServer(port: number | string) {
         }
 
         httpServer = http.createServer({
-            highWaterMark: 1024 * 1024 * 10, // 10MB buffer size
+            highWaterMark: 1024 * 1024 * parseInt(process.env.HTTP_MAX_BUFFER_SIZE || '64'), // 64MB buffer size
             noDelay: true,
             keepAlive: true,
             keepAliveTimeout: 60000,
@@ -78,7 +78,7 @@ export async function startServer(port: number | string) {
             key: await fs.readFile(path.join(__dirname, 'data', 'ssl', 'key.pem')),
             cert: await fs.readFile(path.join(__dirname, 'data', 'ssl', 'cert.pem')),
 
-            highWaterMark: 1024 * 1024 * 10, // 10MB buffer size
+            highWaterMark: 1024 * 1024 * parseInt(process.env.HTTP_MAX_BUFFER_SIZE || '64'), // 64MB buffer size
             noDelay: true,
             keepAlive: true,
             keepAliveTimeout: 60000,
