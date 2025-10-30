@@ -124,11 +124,18 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       apiRequestsServed: 1,
     });
 
-    res.setHeader('Content-Type', object.mimeType);
-    res.setHeader('Content-Length', object.size.toString());
-    res.setHeader('Content-Disposition', `inline; filename="${object.filename}"`);
-
-    res.status(200).download(path.join(getStorageDir(), bucket.name), object.id)
+    res.sendFile(physicalPath, {
+      headers: {
+        'Content-Type': object.mimeType,
+        'Content-Length': object.size.toString(),
+        'Content-Disposition': `inline; filename="${object.filename}"`,
+      },
+    }, (err) => {
+      if (err) {
+        console.error('Error sending file:', err);
+        res.status(500).send('Error serving file');
+      }
+    });
   } catch (error) {
     console.error('Error serving public file:', error);
     return res.status(500).json({ error: 'Failed to serve file' });
