@@ -73,29 +73,18 @@ export default function S3Handlers_GetObject(router: express.Router) {
                 bytesServed: Number(object.size)
             });
 
-            const file = await fs.open(getObjectPath(bucketObj.name, object.id), 'r');
-
-            const stream = file.createReadStream({ highWaterMark: 1024 * 1024 });
-
-            res.writeHead(200, {
-                'Content-Length': object.size.toString(),
-                'Content-Type': object.mimeType,
-                'ETag': `"${object.id}"`
+            return res.sendFile(getObjectPath(bucketObj.name, object.id), {
+                headers: {
+                    'Content-Type': object.mimeType,
+                    'Content-Length': object.size.toString(),
+                    'Content-Disposition': `inline; filename="${object.filename}"`,
+                },
+            }, (err) => {
+                if (err) {
+                    console.error('Error sending file:', err);
+                    return res.status(500).send('Error serving file');
+                }
             });
-
-            stream.pipe(res);
-
-            stream.on('close', () => {
-                file.close();
-            });
-
-            stream.on('error', (err) => {
-                console.error('Stream error in GetObject handler:', err);
-                res.end();
-                file.close();
-            });
-
-            return;
         } catch (err: any) {
             console.error('Error in GetObject handler:', err);
             return res.status(500).send(`Internal server error: ${err?.message || err}`);
