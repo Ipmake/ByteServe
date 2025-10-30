@@ -133,6 +133,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     });
 
     res.setHeader('Content-Type', object.mimeType);
+    res.setHeader('Content-Length', object.size.toString());
     res.setHeader('Content-Disposition', `inline; filename="${object.filename}"`);
 
     res.status(200);
