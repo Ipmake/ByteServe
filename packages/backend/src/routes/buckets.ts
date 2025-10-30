@@ -47,7 +47,7 @@ router.get('/', AuthLoader, async (req, res: Response) => {
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        name: 'asc',
       },
     });
 
