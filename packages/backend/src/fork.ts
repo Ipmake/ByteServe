@@ -92,7 +92,7 @@ startServer(PORT).catch((err) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   await prisma.$disconnect();
-  await redis.disconnect();
+  redis.destroy();
   console.log('Server shut down gracefully');
   process.exit(0);
 });

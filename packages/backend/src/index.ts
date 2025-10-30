@@ -15,6 +15,8 @@ let psql: postgres.Sql<{}> | null = null;
 let redis: ReturnType<typeof createRedisClient> | null = null;
 export { prisma, psql, redis };
 
+let isShuttingDown = false;
+
 if (cluster.isPrimary) {
     (async () => {
         console.log(`[Primary] ${process.pid} is running`);
@@ -55,6 +57,7 @@ if (cluster.isPrimary) {
         }
 
         cluster.on('exit', (worker, code, signal) => {
+            if (isShuttingDown) return; 
             console.log(`Worker ${worker.process.pid} died. Restarting...`);
             cluster.fork();
         });
@@ -62,6 +65,10 @@ if (cluster.isPrimary) {
         // Graceful shutdown
         process.on('SIGINT', async () => {
             console.log('[Primary] Shutting down...');
+            isShuttingDown = true;
+
+            await prisma?.$disconnect();
+            redis?.destroy();
 
             // Kill all workers
             for (const id in cluster.workers) {
