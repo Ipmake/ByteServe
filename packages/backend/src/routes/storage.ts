@@ -133,7 +133,6 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     }, (err) => {
       if (err) {
         console.error('Error sending file:', err);
-        res.status(500).send('Error serving file');
       }
     });
   } catch (error) {
