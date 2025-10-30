@@ -26,8 +26,13 @@ if (cluster.isPrimary) {
             publications: 'alltables'
         });
         redis = createRedisClient({
-            url: process.env.REDIS_URL
+            url: process.env.REDIS_URL,
+            socket: {
+                reconnectStrategy: 1000
+            }
         });
+
+        redis.on('error', (err) => console.error('[Primary] Redis Client Error', err));
 
         await redis.connect().then(() => {
             console.log('Connected to Redis successfully');

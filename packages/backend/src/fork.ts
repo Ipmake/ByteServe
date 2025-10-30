@@ -21,10 +21,13 @@ const psql = postgres(process.env.DATABASE_URL ?? "", {
 })
 
 const redis = createRedisClient({
-  url: process.env.REDIS_URL
+  url: process.env.REDIS_URL,
+  socket: {
+    reconnectStrategy: 1000
+  }
 });
 
-redis.on('error', (err) => console.error('[Main] Redis Client Error', err));
+redis.on('error', (err) => console.error('[Fork] Redis Client Error', err));
 
 redis.connect().then(() => {
 }).catch((err) => {
