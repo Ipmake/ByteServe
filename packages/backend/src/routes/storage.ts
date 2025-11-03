@@ -144,7 +144,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
           'Content-Disposition': `inline; filename="${object.filename}"`,
         });
 
-        const fileStream = createReadStream(physicalPath, { start, end, highWaterMark: 64 * 1024 }); // 64KB chunks
+        const fileStream = createReadStream(physicalPath, { start, end, highWaterMark: 512 * 1024 }); // 512KB chunks for better throughput
         fileStream.on('error', (err) => {
           console.error('Error streaming file:', err);
           if (!res.headersSent) {
@@ -161,7 +161,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
           'Accept-Ranges': 'bytes'
         });
 
-        const fileStream = createReadStream(physicalPath, { highWaterMark: 64 * 1024 }); // 64KB chunks
+        const fileStream = createReadStream(physicalPath, { highWaterMark: 512 * 1024 }); // 512KB chunks for better throughput
         fileStream.on('error', (err) => {
           console.error('Error streaming file:', err);
           if (!res.headersSent) {
