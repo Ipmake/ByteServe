@@ -126,62 +126,131 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     });
 
     const range = req.headers.range;
-    const fileSize = Number(object.size);
+    const totalSize = Number(object.size);
+    const CHUNK_SIZE = 256 * 1024; // 256KB chunks
 
     try {
+      // Use native fs.read for better performance
+      const fd = await fs.open(physicalPath, 'r');
+      const stats = await fd.stat();
+
+      let startPos = 0;
+      let endPos = stats.size - 1;
+
+      // Handle range requests
       if (range) {
-        // Handle range requests
         const parts = range.replace(/bytes=/, "").split("-");
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        const chunkSize = (end - start) + 1;
+        startPos = parseInt(parts[0], 10);
+        endPos = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
+        const contentLength = endPos - startPos + 1;
 
         res.writeHead(206, {
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Content-Range': `bytes ${startPos}-${endPos}/${totalSize}`,
           'Accept-Ranges': 'bytes',
-          'Content-Length': chunkSize,
+          'Content-Length': contentLength,
           'Content-Type': object.mimeType,
           'Content-Disposition': `inline; filename="${object.filename}"`,
         });
-
-        const fileStream = createReadStream(physicalPath, { start, end, highWaterMark: 512 * 1024 }); // 512KB chunks for better throughput
-        fileStream.on('error', (err) => {
-          console.error('Error streaming file:', err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'Failed to stream file' });
-          }
-        });
-        fileStream.pipe(res);
       } else {
         // Handle full file requests
         res.writeHead(200, {
-          'Content-Length': fileSize,
+          'Content-Length': totalSize,
           'Content-Type': object.mimeType,
           'Content-Disposition': `inline; filename="${object.filename}"`,
           'Accept-Ranges': 'bytes'
         });
-
-        const fileStream = createReadStream(physicalPath, { highWaterMark: 512 * 1024 }); // 512KB chunks for better throughput
-        fileStream.on('error', (err) => {
-          console.error('Error streaming file:', err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'Failed to stream file' });
-          }
-        });
-        fileStream.pipe(res);
       }
+
+      // Set socket options
+      if (res.socket) {
+        res.socket.setKeepAlive(true);
+        res.socket.setNoDelay(true);
+      }
+
+      // Stream the file
+      let position = startPos;
+      let transferStart = process.hrtime();
+      let transferred = 0;
+
+      while (position <= endPos) {
+        const buffer = Buffer.allocUnsafe(Math.min(CHUNK_SIZE, endPos - position + 1));
+        const { bytesRead } = await fd.read(buffer, 0, buffer.length, position);
+
+        if (bytesRead === 0) break;
+
+        const canContinue = res.write(buffer.subarray(0, bytesRead));
+        position += bytesRead;
+        transferred += bytesRead;
+
+        // Log transfer speed every 5 seconds
+        const elapsed = process.hrtime(transferStart);
+        const seconds = elapsed[0] + elapsed[1] / 1e9;
+        if (Math.floor(seconds) % 5 === 0) {
+          const mbps = (transferred / (1024 * 1024)) / seconds;
+          console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
+        }
+
+        if (!canContinue) {
+          // Handle backpressure
+          await new Promise(resolve => res.once('drain', resolve));
+        }
+      }
+
+      res.end();
+      await fd.close();
     } catch (err) {
-      console.error('Error setting up file stream:', err);
+      console.error('Error streaming file:', err);
       if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to set up file stream' });
+        res.status(500).json({ error: 'Failed to stream file' });
       }
     }
-  } catch (error) {
-    console.error('Error serving public file:', error);
-    try {
-      return res.status(500).json({ error: 'Failed to serve file' });
-    } catch (err) {
-      console.error('Error sending error response:', err);
+
+    // Monitor streaming performance
+    const startTime = process.hrtime();
+    let bytesTransferred = 0;
+
+    const fileStream = createReadStream(physicalPath);
+
+    fileStream.on('data', (chunk) => {
+      bytesTransferred += chunk.length;
+
+      // Log transfer speed every 5 seconds
+      const elapsed = process.hrtime(startTime);
+      const seconds = elapsed[0] + elapsed[1] / 1e9;
+      if (Math.floor(seconds) % 5 === 0) {
+        const mbps = (bytesTransferred / (1024 * 1024)) / seconds;
+        console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
+      }
+    });
+
+    fileStream.on('error', (err) => {
+      console.error('Error streaming file:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to stream file' });
+      }
+    });
+
+    // Enable keep-alive and optimize TCP
+    if (res.socket) {
+      res.socket.setKeepAlive(true);
+      res.socket.setNoDelay(true);
+    }
+
+    // Handle backpressure explicitly
+    const stream = fileStream.pipe(res, { end: true });
+
+    stream.on('drain', () => {
+      fileStream.resume();
+    });
+
+    stream.on('error', (err) => {
+      console.error('Stream error:', err);
+      fileStream.destroy();
+    });
+  } catch (err) {
+    console.error('Error setting up file stream:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to set up file stream' });
     }
   }
 });
