@@ -67,7 +67,7 @@ export async function startServer(port: number | string) {
         }
 
         httpServer = http.createServer({
-            highWaterMark: 1024 * 1024 * parseInt(process.env.HTTP_MAX_BUFFER_SIZE || '8'), // 8MB buffer size
+            highWaterMark: 1024 * 1024 * parseInt(process.env.HTTP_MAX_BUFFER_SIZE || '6'), // 6MB buffer size
             noDelay: true,
             keepAlive: true,
             keepAliveTimeout: 60000,
@@ -78,12 +78,15 @@ export async function startServer(port: number | string) {
             key: await fs.readFile(path.join(__dirname, 'data', 'ssl', 'key.pem')),
             cert: await fs.readFile(path.join(__dirname, 'data', 'ssl', 'cert.pem')),
 
-            highWaterMark: 1024 * 1024 * parseInt(process.env.HTTP_MAX_BUFFER_SIZE || '8'), // 8MB buffer size
+            highWaterMark: 1024 * 1024 * parseInt(process.env.HTTP_MAX_BUFFER_SIZE || '6'), // 6MB buffer size
             noDelay: true,
             keepAlive: true,
             keepAliveTimeout: 60000,
             keepAliveInitialDelay: 30000,
             maxHeaderSize: 64 * 1024, // 64KB
+
+            sessionTimeout: 300000, // 5 minutes
+            sessionIdContext: 'byte-server',
         }, app);
 
         const pubRedis = redis.duplicate();

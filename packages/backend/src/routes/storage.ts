@@ -138,15 +138,6 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     try {
       await fsPromises.stat(physicalPath); // Validate file exists
 
-      // Send headers first
-      res.writeHead(200, {
-        'Content-Length': Number(object.size),
-        'Content-Type': object.mimeType,
-        'Content-Disposition': `inline; filename="${object.filename}"`,
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'no-cache'
-      });
-
       // Optimize socket
       // Check if this is a range request
       const range = req.headers.range;
@@ -200,7 +191,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       let readStream = createReadStream(physicalPath, {
         start,
         end,
-        highWaterMark: 1024 * 1024 // 1MB chunks for better performance with large files
+        highWaterMark: 1024 * 1024 * 6 // 6MB chunks for better performance with large files
       });
 
       // Pipe to response with proper error handling
