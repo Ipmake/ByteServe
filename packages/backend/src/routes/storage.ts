@@ -165,54 +165,53 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       });
     }
 
-    // Optimize socket
+    // Optimize socket for HTTPS streaming
     if (res.socket) {
       res.socket.setKeepAlive(true);
       res.socket.setNoDelay(true);
     }
 
-    // Create monitoring transform stream
-    interface MonitoringTransform extends Transform {
-      bytesTransferred: number;
-      startTime: number;
-      lastLog: number;
-    }
+    // Start monitoring
+    let bytesTransferred = 0;
+    const startTime = Date.now();
+    let lastLog = startTime;
 
-    const monitor = new Transform({
-      transform(chunk: Buffer, encoding: string, callback: Function) {
-        const self = this as MonitoringTransform;
-        self.bytesTransferred += chunk.length;
-        const now = Date.now();
-        
-        // Log transfer speed every 5 seconds
-        if (now - self.lastLog >= 5000) {
-          const seconds = (now - self.startTime) / 1000;
-          const mbps = (self.bytesTransferred / (1024 * 1024)) / seconds;
-          console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
-          self.lastLog = now;
-        }
-        callback(null, chunk);
-      }
-    }) as MonitoringTransform;
-    
-    monitor.bytesTransferred = 0;
-    monitor.startTime = Date.now();
-    monitor.lastLog = monitor.startTime;
-
-    // Create read stream with appropriate range and optimized buffer size
-    const stream = createReadStream(physicalPath, {
-      start: start,
-      end: end,
-      highWaterMark: 1024 * 1024 * 4 // 4MB chunks for optimal performance
+    // Create file stream with large buffer
+    const fileStream = createReadStream(physicalPath, {
+      start,
+      end,
+      highWaterMark: 4 * 1024 * 1024 // 4MB buffer size
     });
 
-    // Use pipeline for proper error handling and backpressure management
-    await pipeline(
-      stream,
-      monitor,
-      res
-    );
+    // Set up monitoring
+    fileStream.on('data', (chunk) => {
+      bytesTransferred += chunk.length;
+      const now = Date.now();
+      
+      // Log transfer speed every 5 seconds
+      if (now - lastLog >= 5000) {
+        const seconds = (now - startTime) / 1000;
+        const mbps = (bytesTransferred / (1024 * 1024)) / seconds;
+        console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
+        lastLog = now;
+      }
+    });
 
+    // Handle errors
+    fileStream.on('error', (error) => {
+      console.error('Stream error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to stream file' });
+      }
+    });
+
+    // Use pipe with proper error handling
+    await new Promise((resolve, reject) => {
+      fileStream
+        .pipe(res)
+        .on('finish', resolve)
+        .on('error', reject);
+    });
   } catch (err) {
     console.error('Error streaming file:', err);
     if (!res.headersSent) {
