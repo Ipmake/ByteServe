@@ -7,127 +7,8 @@ import { randomUUID } from 'crypto';
 import mime from 'mime-types';
 import { Transform, pipeline } from 'stream';
 import { promisify } from 'util';
-import { FileHandle } from 'fs/promises';
 import { getObjectPath, getStorageDir, resolvePath } from '../common/object-nesting';
 import * as fsPromises from 'fs/promises';
-
-class BufferedStreamManager {
-  private fileHandle: FileHandle | null = null;
-  private buffer1: Buffer;
-  private buffer2: Buffer;
-  private currentBuffer: 1 | 2 = 1;
-  private buffer1Filled: boolean = false;
-  private buffer2Filled: boolean = false;
-  private readInProgress: boolean = false;
-  private filePosition: number = 0;
-  private error: Error | null = null;
-  private actualBytesRead1: number = 0;
-  private actualBytesRead2: number = 0;
-
-  constructor(bufferSize: number) {
-    this.buffer1 = Buffer.allocUnsafe(bufferSize);
-    this.buffer2 = Buffer.allocUnsafe(bufferSize);
-  }
-
-  public async initialize(filePath: string): Promise<void> {
-    try {
-      this.fileHandle = await fsPromises.open(filePath, 'r');
-      // Start filling both buffers
-      this.fillBuffer(1);
-      this.fillBuffer(2);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        throw new Error(`Failed to initialize stream: ${err.message}`);
-      } else {
-        throw new Error('Failed to initialize stream: Unknown error');
-      }
-    }
-  }
-
-  private async fillBuffer(bufferNum: 1 | 2): Promise<void> {
-    if (this.fileHandle === null || this.readInProgress || (bufferNum === 1 ? this.buffer1Filled : this.buffer2Filled)) {
-      return;
-    }
-
-    this.readInProgress = true;
-    const buffer = bufferNum === 1 ? this.buffer1 : this.buffer2;
-
-    try {
-      const result = await this.fileHandle.read(buffer, 0, buffer.length, this.filePosition);
-      const bytesRead = result.bytesRead;
-      
-      if (bytesRead > 0) {
-        this.filePosition += bytesRead;
-        if (bufferNum === 1) {
-          this.buffer1Filled = true;
-          this.actualBytesRead1 = bytesRead;
-        } else {
-          this.buffer2Filled = true;
-          this.actualBytesRead2 = bytesRead;
-        }
-      } else {
-        if (bufferNum === 1) {
-          this.buffer1Filled = false;
-        } else {
-          this.buffer2Filled = false;
-        }
-      }
-    } catch (err: unknown) {
-      this.error = err instanceof Error ? err : new Error('Unknown error during read');
-    } finally {
-      this.readInProgress = false;
-    }
-  }
-
-  public async getNextChunk(): Promise<{ buffer: Buffer; length: number } | null> {
-    if (this.fileHandle === null) {
-      throw new Error('BufferedStreamManager not initialized');
-    }
-
-    if (this.error) {
-      const error = this.error;
-      this.error = null;
-      throw error;
-    }
-
-    // Wait for current buffer to be filled
-    while (this.currentBuffer === 1 && !this.buffer1Filled || 
-           this.currentBuffer === 2 && !this.buffer2Filled) {
-      if (this.error) {
-        const error = this.error;
-        this.error = null;
-        throw error;
-      }
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-
-    const currentBufferFilled = this.currentBuffer === 1 ? this.buffer1Filled : this.buffer2Filled;
-    const actualBytesRead = this.currentBuffer === 1 ? this.actualBytesRead1 : this.actualBytesRead2;
-
-    if (!currentBufferFilled || actualBytesRead === 0) {
-      await this.fileHandle.close();
-      this.fileHandle = null;
-      return null;
-    }
-
-    // Get the current buffer and mark it as not filled
-    const buffer = this.currentBuffer === 1 ? this.buffer1 : this.buffer2;
-    if (this.currentBuffer === 1) {
-      this.buffer1Filled = false;
-    } else {
-      this.buffer2Filled = false;
-    }
-
-    // Start filling the buffer we just emptied
-    this.fillBuffer(this.currentBuffer);
-
-    // Switch to the other buffer for next time
-    this.currentBuffer = this.currentBuffer === 1 ? 2 : 1;
-
-    return { buffer, length: actualBytesRead };
-  }
-}
-
 import { updateStatsInRedis } from '../common/stats';
 
 const router = Router();
@@ -148,11 +29,12 @@ const upload = multer({ storage });
 
 // GET /api/storage/:bucketName/* - Public file access
 router.get('/:bucketName/*', async (req: Request, res: Response) => {
-  try {
-    const { bucketName } = req.params;
-    const filePath = req.params[0] || ''; // Everything after bucketName
-    const pathSegments = filePath.split('/').filter(s => s.length > 0);
+  const { bucketName } = req.params;
+  const filePath = req.params[0] || ''; // Everything after bucketName
+  const pathSegments = filePath.split('/').filter(s => s.length > 0);
+  let readStream: ReturnType<typeof createReadStream> | undefined;
 
+  try {
     // Get bucket
     const bucket = await prisma.bucket.findFirst({
       where: { name: bucketName },
@@ -173,7 +55,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       if (bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') {
         return res.status(403).json({ error: 'May not list folder contents' });
       }
-      
+
       const objects = await prisma.object.findMany({
         where: {
           bucketId: bucket.id,
@@ -215,7 +97,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       if (bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') {
         return res.status(403).json({ error: 'May not list folder contents' });
       }
-      
+
       const children = await prisma.object.findMany({
         where: {
           bucketId: bucket.id,
@@ -255,7 +137,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
 
     try {
       await fsPromises.stat(physicalPath); // Validate file exists
-      
+
       // Send headers first
       res.writeHead(200, {
         'Content-Length': Number(object.size),
@@ -266,134 +148,90 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       });
 
       // Optimize socket
+      // Check if this is a range request
+      const range = req.headers.range;
+      const totalSize = Number(object.size);
+
+      let start = 0;
+      let end = totalSize - 1;
+
+      // Handle range requests
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        start = parseInt(parts[0], 10);
+        end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+
+        // Validate range
+        if (start >= totalSize || end >= totalSize || start > end) {
+          res.status(416).send('Requested range not satisfiable');
+          return;
+        }
+
+        res.status(206).set({
+          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': (end - start + 1),
+          'Content-Type': object.mimeType,
+          'Content-Disposition': `inline; filename="${object.filename}"`
+        });
+      } else {
+        res.status(200).set({
+          'Content-Length': totalSize,
+          'Content-Type': object.mimeType,
+          'Content-Disposition': `inline; filename="${object.filename}"`,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'no-cache'
+        });
+      }
+
+      // Optimize socket
       if (res.socket) {
-        res.socket.setKeepAlive(true);
+        // Enable keep-alive to maintain connection
+        res.socket.setKeepAlive(true, 60000); // 60 second keep-alive time
+
+        // Disable Nagle's algorithm for faster data transmission
         res.socket.setNoDelay(true);
-      }
-      // Initialize the double-buffered stream manager
-      const streamManager = new BufferedStreamManager(2 * 1024 * 1024); // 2MB chunks
-      await streamManager.initialize(physicalPath);
 
-      // Set up monitoring
-      let transferred = 0;
-      const timeStart = Date.now();
-      let timeLastLog = timeStart;
-
-      // Stream with backpressure handling
-      while (true) {
-        const chunk = await streamManager.getNextChunk();
-        if (!chunk) break;
-
-        const canContinue = res.write(chunk.buffer.subarray(0, chunk.length));
-        transferred += chunk.length;
-
-        // Monitor speed
-        const now = Date.now();
-        if (now - timeLastLog >= 5000) {
-          const seconds = (now - timeStart) / 1000;
-          const mbps = (transferred / (1024 * 1024)) / seconds;
-          console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
-          timeLastLog = now;
-        }
-
-        if (!canContinue) {
-          // Handle backpressure
-          await new Promise(resolve => res.once('drain', resolve));
-        }
+        // Optimize TCP buffering
+        res.socket.cork();
+        res.socket.uncork();
       }
 
-      res.end();
+      let readStream = createReadStream(physicalPath, {
+        start,
+        end,
+        highWaterMark: 1024 * 1024 // 1MB chunks for better performance with large files
+      });
+
+      // Pipe to response with proper error handling
+      await promisify(pipeline)(
+        readStream,
+        res
+      );
     } catch (error) {
-      console.error('Error during file streaming:', error);
+      console.error('Error handling public file access:', error);
       if (!res.headersSent) {
-        res.status(500).send('Error during file streaming');
+        res.status(500).json({ error: 'Internal server error' });
       } else {
         res.destroy();
       }
-    }
 
-    const range = req.headers.range;
-    const totalSize = Number(object.size);
-    
-    // Get file stats
-    const stats = await fsPromises.stat(physicalPath);
-    let start = 0;
-    let end = stats.size - 1;
-
-    // Handle range requests
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      start = parseInt(parts[0], 10);
-      end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
-      const contentLength = end - start + 1;
-
-      res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${totalSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': contentLength,
-        'Content-Type': object.mimeType,
-        'Content-Disposition': `inline; filename="${object.filename}"`,
-      });
-    } else {
-      res.writeHead(200, {
-        'Content-Length': totalSize,
-        'Content-Type': object.mimeType,
-        'Content-Disposition': `inline; filename="${object.filename}"`,
-        'Accept-Ranges': 'bytes'
-      });
-    }
-
-    // Optimize socket for HTTPS streaming
-    if (res.socket) {
-      res.socket.setKeepAlive(true);
-      res.socket.setNoDelay(true);
-    }
-
-    // Start monitoring
-    let bytesTransferred = 0;
-    const startTime = Date.now();
-    let lastLog = startTime;
-
-    // Create file stream with large buffer
-    const fileStream = createReadStream(physicalPath, {
-      start,
-      end,
-      highWaterMark: 4 * 1024 * 1024 // 4MB buffer size
-    });
-
-    // Set up monitoring
-    fileStream.on('data', (chunk) => {
-      bytesTransferred += chunk.length;
-      const now = Date.now();
-      
-      // Log transfer speed every 5 seconds
-      if (now - lastLog >= 5000) {
-        const seconds = (now - startTime) / 1000;
-        const mbps = (bytesTransferred / (1024 * 1024)) / seconds;
-        console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
-        lastLog = now;
+      // Ensure stream is cleaned up
+      if (readStream) {
+        readStream.destroy();
       }
-    });
-
-    // Handle errors
-    fileStream.on('error', (error) => {
-      console.error('Stream error:', error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to stream file' });
-      }
-    });
-
-    // Use pipe with proper error handling
-    await new Promise((resolve, reject) => {
-      fileStream
-        .pipe(res)
-        .on('finish', resolve)
-        .on('error', reject);
-    });
-  } catch (err) {
-    console.error('Error streaming file:', err);
+    }
+  } catch (error) {
+    console.error('Error handling public file access:', error);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to stream file' });
+      res.status(500).json({ error: 'Internal server error' });
+    } else {
+      res.destroy();
+    }
+
+    // Ensure stream is cleaned up
+    if (readStream) {
+      readStream.destroy();
     }
   }
 });
