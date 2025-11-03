@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../fork';
 import * as fs from 'fs/promises';
+import { createReadStream } from 'fs';
 import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
@@ -115,7 +116,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       });
     }
 
-    // It's a file - serve it
+    // It's a file - serve it with optimized streaming
     const physicalPath = getObjectPath(bucketName, object.id);
 
     await updateStatsInRedis(bucket.id, {
@@ -124,17 +125,57 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       apiRequestsServed: 1,
     });
 
-    res.sendFile(physicalPath, {
-      headers: {
-        'Content-Type': object.mimeType,
-        'Content-Length': object.size.toString(),
-        'Content-Disposition': `inline; filename="${object.filename}"`,
-      },
-    }, (err) => {
-      if (err) {
-        console.error('Error sending file:', err);
+    const range = req.headers.range;
+    const fileSize = Number(object.size);
+
+    try {
+      if (range) {
+        // Handle range requests
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = (end - start) + 1;
+
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunkSize,
+          'Content-Type': object.mimeType,
+          'Content-Disposition': `inline; filename="${object.filename}"`,
+        });
+
+        const fileStream = createReadStream(physicalPath, { start, end, highWaterMark: 64 * 1024 }); // 64KB chunks
+        fileStream.on('error', (err) => {
+          console.error('Error streaming file:', err);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to stream file' });
+          }
+        });
+        fileStream.pipe(res);
+      } else {
+        // Handle full file requests
+        res.writeHead(200, {
+          'Content-Length': fileSize,
+          'Content-Type': object.mimeType,
+          'Content-Disposition': `inline; filename="${object.filename}"`,
+          'Accept-Ranges': 'bytes'
+        });
+
+        const fileStream = createReadStream(physicalPath, { highWaterMark: 64 * 1024 }); // 64KB chunks
+        fileStream.on('error', (err) => {
+          console.error('Error streaming file:', err);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to stream file' });
+          }
+        });
+        fileStream.pipe(res);
       }
-    });
+    } catch (err) {
+      console.error('Error setting up file stream:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to set up file stream' });
+      }
+    }
   } catch (error) {
     console.error('Error serving public file:', error);
     try {
