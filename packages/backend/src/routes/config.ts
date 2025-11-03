@@ -5,6 +5,9 @@ import Joi from 'joi';
 
 const router = express.Router();
 
+// Add JSON parsing middleware for config routes
+router.use(express.json({ limit: '50mb' }));
+
 router.get('/', requireAdmin, async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 

@@ -9,7 +9,6 @@ import { setupS3Server } from './services/connections/s3';
 import { createClient as createRedisClient } from "redis";
 import postgres from 'postgres';
 import path from 'path';
-import compression from 'compression';
 
 dotenv.config();
 
@@ -76,7 +75,6 @@ setupS3Server(app);
 
 // All other middleware/routes after WebDAV
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
 
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {

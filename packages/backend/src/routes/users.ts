@@ -5,6 +5,9 @@ import Joi from 'joi';
 
 const router = express.Router();
 
+// Add JSON parsing middleware for user routes
+router.use(express.json({ limit: '50mb' }));
+
 // Middleware to check if user is admin
 export async function requireAdmin(req: Request, res: Response, next: express.NextFunction) {
     const token = req.headers.authorization;

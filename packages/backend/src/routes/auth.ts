@@ -5,6 +5,9 @@ import Joi from 'joi';
 
 const router = express.Router();
 
+// Add JSON parsing middleware for auth routes
+router.use(express.json({ limit: '50mb' }));
+
 router.get('/me', async (req, res) => {
     const token = req.headers.authorization;
 

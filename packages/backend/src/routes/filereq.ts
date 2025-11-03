@@ -12,7 +12,8 @@ import mime from 'mime';
 
 const router = express.Router();
 
-router.post('/', AuthLoader, async (req, res) => {
+// Add JSON parsing only to routes that need it
+router.post('/', express.json({ limit: '50mb' }), AuthLoader, async (req, res) => {
     if (!req.user) return res.status(401).send({ error: 'Unauthorized' });
     const { user } = req.user;
 
@@ -472,7 +473,7 @@ router.post('/:id/upload/complete', async (req, res) => {
     return res.status(200).send({ message: 'Upload completed successfully' });
 });
 
-router.delete('/:id', AuthLoader, async (req, res) => {
+router.delete('/:id', express.json({ limit: '50mb' }), AuthLoader, async (req, res) => {
     const reqId = req.params.id;
     const reqData = await redis.json.get(`filereq:${reqId}`) as FileReq.FileRequest | null;
     if (!reqData) return res.status(404).send({ error: 'File request not found' });

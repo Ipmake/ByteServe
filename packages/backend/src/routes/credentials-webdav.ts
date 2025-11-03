@@ -6,6 +6,9 @@ import { generateRandomString } from '../common/string';
 
 const router = express.Router();
 
+// Add JSON parsing middleware for WebDAV credential routes
+router.use(express.json({ limit: '50mb' }));
+
 // Get all WebDAV credentials for the current user
 router.get('/', async (req: Request, res: Response) => {
     try {
