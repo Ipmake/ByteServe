@@ -191,7 +191,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       let readStream = createReadStream(physicalPath, {
         start,
         end,
-        highWaterMark: 1024 * 1024 * 6 // 6MB chunks for better performance with large files
+        highWaterMark: 1024 * 1024 * 16 // 16MB chunks for better performance with large files
       });
 
       // Pipe to response with proper error handling
