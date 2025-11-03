@@ -6,6 +6,8 @@ import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import mime from 'mime-types';
+import { Transform, pipeline } from 'stream';
+import { promisify } from 'util';
 import { getObjectPath, getStorageDir, resolvePath } from '../common/object-nesting';
 import { updateStatsInRedis } from '../common/stats';
 
@@ -49,7 +51,10 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
 
     // If no path, list bucket root
     if (pathSegments.length === 0) {
-      if (bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') return res.status(403).json({ error: 'May not list folder contents' });
+      if (bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') {
+        return res.status(403).json({ error: 'May not list folder contents' });
+      }
+      
       const objects = await prisma.object.findMany({
         where: {
           bucketId: bucket.id,
@@ -88,7 +93,10 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
 
     // If it's a folder, list contents
     if (object.mimeType === 'folder') {
-      if (bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') return res.status(403).json({ error: 'May not list folder contents' });
+      if (bucket.BucketConfig.find(c => c.key === 'files_send_folder_index')?.value !== 'true') {
+        return res.status(403).json({ error: 'May not list folder contents' });
+      }
+      
       const children = await prisma.object.findMany({
         where: {
           bucketId: bucket.id,
@@ -119,6 +127,7 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
     // It's a file - serve it with optimized streaming
     const physicalPath = getObjectPath(bucketName, object.id);
 
+    // Update stats in Redis
     await updateStatsInRedis(bucket.id, {
       requestsCount: 1,
       bytesServed: Number(object.size),
@@ -127,130 +136,87 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
 
     const range = req.headers.range;
     const totalSize = Number(object.size);
-    const CHUNK_SIZE = 256 * 1024; // 256KB chunks
+    
+    // Get file stats
+    const stats = await fs.stat(physicalPath);
+    let start = 0;
+    let end = stats.size - 1;
 
-    try {
-      // Use native fs.read for better performance
-      const fd = await fs.open(physicalPath, 'r');
-      const stats = await fd.stat();
+    // Handle range requests
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      start = parseInt(parts[0], 10);
+      end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
+      const contentLength = end - start + 1;
 
-      let startPos = 0;
-      let endPos = stats.size - 1;
-
-      // Handle range requests
-      if (range) {
-        const parts = range.replace(/bytes=/, "").split("-");
-        startPos = parseInt(parts[0], 10);
-        endPos = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
-        const contentLength = endPos - startPos + 1;
-
-        res.writeHead(206, {
-          'Content-Range': `bytes ${startPos}-${endPos}/${totalSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': contentLength,
-          'Content-Type': object.mimeType,
-          'Content-Disposition': `inline; filename="${object.filename}"`,
-        });
-      } else {
-        // Handle full file requests
-        res.writeHead(200, {
-          'Content-Length': totalSize,
-          'Content-Type': object.mimeType,
-          'Content-Disposition': `inline; filename="${object.filename}"`,
-          'Accept-Ranges': 'bytes'
-        });
-      }
-
-      // Set socket options
-      if (res.socket) {
-        res.socket.setKeepAlive(true);
-        res.socket.setNoDelay(true);
-      }
-
-      // Stream the file
-      let position = startPos;
-      let transferStart = process.hrtime();
-      let transferred = 0;
-
-      while (position <= endPos) {
-        const buffer = Buffer.allocUnsafe(Math.min(CHUNK_SIZE, endPos - position + 1));
-        const { bytesRead } = await fd.read(buffer, 0, buffer.length, position);
-
-        if (bytesRead === 0) break;
-
-        const canContinue = res.write(buffer.subarray(0, bytesRead));
-        position += bytesRead;
-        transferred += bytesRead;
-
-        // Log transfer speed every 5 seconds
-        const elapsed = process.hrtime(transferStart);
-        const seconds = elapsed[0] + elapsed[1] / 1e9;
-        if (Math.floor(seconds) % 5 === 0) {
-          const mbps = (transferred / (1024 * 1024)) / seconds;
-          console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
-        }
-
-        if (!canContinue) {
-          // Handle backpressure
-          await new Promise(resolve => res.once('drain', resolve));
-        }
-      }
-
-      res.end();
-      await fd.close();
-    } catch (err) {
-      console.error('Error streaming file:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to stream file' });
-      }
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': contentLength,
+        'Content-Type': object.mimeType,
+        'Content-Disposition': `inline; filename="${object.filename}"`,
+      });
+    } else {
+      res.writeHead(200, {
+        'Content-Length': totalSize,
+        'Content-Type': object.mimeType,
+        'Content-Disposition': `inline; filename="${object.filename}"`,
+        'Accept-Ranges': 'bytes'
+      });
     }
 
-    // Monitor streaming performance
-    const startTime = process.hrtime();
-    let bytesTransferred = 0;
-
-    const fileStream = createReadStream(physicalPath);
-
-    fileStream.on('data', (chunk) => {
-      bytesTransferred += chunk.length;
-
-      // Log transfer speed every 5 seconds
-      const elapsed = process.hrtime(startTime);
-      const seconds = elapsed[0] + elapsed[1] / 1e9;
-      if (Math.floor(seconds) % 5 === 0) {
-        const mbps = (bytesTransferred / (1024 * 1024)) / seconds;
-        console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
-      }
-    });
-
-    fileStream.on('error', (err) => {
-      console.error('Error streaming file:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to stream file' });
-      }
-    });
-
-    // Enable keep-alive and optimize TCP
+    // Optimize socket
     if (res.socket) {
       res.socket.setKeepAlive(true);
       res.socket.setNoDelay(true);
     }
 
-    // Handle backpressure explicitly
-    const stream = fileStream.pipe(res, { end: true });
+    // Create monitoring transform stream
+    interface MonitoringTransform extends Transform {
+      bytesTransferred: number;
+      startTime: number;
+      lastLog: number;
+    }
 
-    stream.on('drain', () => {
-      fileStream.resume();
+    const monitor = new Transform({
+      transform(chunk: Buffer, encoding: string, callback: Function) {
+        const self = this as MonitoringTransform;
+        self.bytesTransferred += chunk.length;
+        const now = Date.now();
+        
+        // Log transfer speed every 5 seconds
+        if (now - self.lastLog >= 5000) {
+          const seconds = (now - self.startTime) / 1000;
+          const mbps = (self.bytesTransferred / (1024 * 1024)) / seconds;
+          console.log(`Transfer speed: ${mbps.toFixed(2)} MB/s`);
+          self.lastLog = now;
+        }
+        callback(null, chunk);
+      }
+    }) as MonitoringTransform;
+    
+    monitor.bytesTransferred = 0;
+    monitor.startTime = Date.now();
+    monitor.lastLog = monitor.startTime;
+
+    // Create read stream with appropriate range and optimized buffer size
+    const stream = createReadStream(physicalPath, {
+      start: start,
+      end: end,
+      highWaterMark: 1024 * 1024 * 4 // 4MB chunks for optimal performance
     });
 
-    stream.on('error', (err) => {
-      console.error('Stream error:', err);
-      fileStream.destroy();
-    });
+    // Use pipeline for proper error handling and backpressure management
+    await pipeline(
+      stream,
+      monitor,
+      res
+    );
+
   } catch (err) {
-    console.error('Error setting up file stream:', err);
+    console.error('Error streaming file:', err);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to set up file stream' });
+      res.status(500).json({ error: 'Failed to stream file' });
     }
   }
 });
