@@ -175,30 +175,49 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
         });
       }
 
-      // Optimize socket
+      // Optimize socket for high-throughput
       if (res.socket) {
-        // Enable keep-alive to maintain connection
-        res.socket.setKeepAlive(true, 60000); // 60 second keep-alive time
-
-        // Disable Nagle's algorithm for faster data transmission
+        res.socket.setKeepAlive(true, 60000);
         res.socket.setNoDelay(true);
-
-        // Optimize TCP buffering
-        res.socket.cork();
-        res.socket.uncork();
+        
+        // Increase socket buffer sizes for high-throughput (16MB based on benchmark results)
+        try {
+          // @ts-ignore - these methods exist but aren't in the types
+          if (res.socket.setRecvBufferSize) res.socket.setRecvBufferSize(16 * 1024 * 1024);
+          // @ts-ignore
+          if (res.socket.setSendBufferSize) res.socket.setSendBufferSize(16 * 1024 * 1024);
+        } catch (e) {
+          // Ignore if not supported
+        }
       }
 
-      let readStream = createReadStream(physicalPath, {
-        start,
-        end,
-        highWaterMark: 1024 * 1024 * 32 // 32MB chunks for better performance with large files
-      });
-
-      // Pipe to response with proper error handling
-      await promisify(pipeline)(
-        readStream,
-        res
-      );
+      const CHUNK_SIZE = 16 * 1024 * 1024; // 16MB chunks - optimal for high-latency connections
+      const fileHandle = await fsPromises.open(physicalPath, 'r');
+      
+      try {
+        let position = start;
+        const buffer = Buffer.allocUnsafe(CHUNK_SIZE);
+        
+        while (position <= end) {
+          const bytesToRead = Math.min(CHUNK_SIZE, end - position + 1);
+          const { bytesRead } = await fileHandle.read(buffer, 0, bytesToRead, position);
+          
+          if (bytesRead === 0) break;
+          
+          const chunk = buffer.subarray(0, bytesRead);
+          const canContinue = res.write(chunk);
+          position += bytesRead;
+          
+          // Handle backpressure - wait for drain if write buffer is full
+          if (!canContinue) {
+            await new Promise<void>((resolve) => res.once('drain', resolve));
+          }
+        }
+        
+        res.end();
+      } finally {
+        await fileHandle.close();
+      }
     } catch (error) {
       console.error('Error handling public file access:', error);
       if (!res.headersSent) {
@@ -206,23 +225,11 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
       } else {
         res.destroy();
       }
-
-      // Ensure stream is cleaned up
-      if (readStream) {
-        readStream.destroy();
-      }
     }
   } catch (error) {
     console.error('Error handling public file access:', error);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Internal server error' });
-    } else {
-      res.destroy();
-    }
-
-    // Ensure stream is cleaned up
-    if (readStream) {
-      readStream.destroy();
     }
   }
 });
