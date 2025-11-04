@@ -26,10 +26,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // GET /api/storage/:bucketName/* - Public file access
-router.get('/:bucketName/*filePath', async (req: Request, res: Response) => {
+router.get('/:bucketName/{*filePath}', async (req: Request, res: Response) => {
   const { bucketName } = req.params;
   const filePath = (req.params as any).filePath || [];
-  const pathSegments = Array.isArray(filePath) ? filePath : [];
+  const pathSegments = Array.isArray(filePath) ? filePath.filter(segment => segment !== '') : [];
 
   try {
     // Get bucket
@@ -232,11 +232,11 @@ router.get('/:bucketName/*filePath', async (req: Request, res: Response) => {
 });
 
 // POST /api/storage/:bucketName/* - Public file upload (for public-write buckets)
-router.post('/:bucketName/*folderPath', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/:bucketName/{*folderPath}', upload.single('file'), async (req: Request, res: Response) => {
   try {
     const { bucketName } = req.params;
     const folderPath = (req.params as any).folderPath || [];
-    const pathSegments = Array.isArray(folderPath) ? folderPath : [];
+    const pathSegments = Array.isArray(folderPath) ? folderPath.filter(segment => segment !== '') : [];
     const file = req.file;
 
     if (!file) {

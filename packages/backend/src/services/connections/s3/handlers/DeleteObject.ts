@@ -5,7 +5,7 @@ import { getObjectPath, resolvePath } from '../../../../common/object-nesting';
 import fs from 'fs/promises';
 
 export default function S3Handlers_DeleteObject(router: express.Router) {
-    router.delete('/:bucket/*objectPath', async (req, res) => {
+    router.delete('/:bucket/{*objectPath}', async (req, res) => {
         try {
             const { bucket } = req.params;
             const objectPathParam = (req.params as any).objectPath || [];

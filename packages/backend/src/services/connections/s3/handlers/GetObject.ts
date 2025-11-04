@@ -3,10 +3,9 @@ import { prisma } from '../../../../fork';
 import { S3SigV4Auth } from '../../../../common/SigV4Util';
 import { getObjectPath, resolvePath } from '../../../../common/object-nesting';
 import { updateStatsInRedis } from '../../../../common/stats';
-import fs from 'fs/promises';
 
 export default function S3Handlers_GetObject(router: express.Router) {
-    router.get('/:bucket/*objectPath', async (req, res) => {
+    router.get('/:bucket/{*objectPath}', async (req, res) => {
         try {
             const { bucket } = req.params;
             const objectPathParam = (req.params as any).objectPath || [];

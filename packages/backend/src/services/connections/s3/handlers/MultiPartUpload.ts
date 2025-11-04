@@ -40,7 +40,7 @@ interface UploadSession {
 }
 
 export default function S3Handlers_PostObject(router: express.Router) {
-    router.post('/:bucket/*objectPath', async (req, res) => {
+    router.post('/:bucket/{*objectPath}', async (req, res) => {
         try {
             const { bucket } = req.params;
             const objectPathParam = (req.params as any).objectPath || [];
@@ -229,7 +229,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
         }
     });
 
-    router.put('/:bucket/*objectPath', async (req, res) => {
+    router.put('/:bucket/{*objectPath}', async (req, res) => {
         try {
             const { partNumber, uploadId } = req.query;
 
