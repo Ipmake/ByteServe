@@ -32,17 +32,17 @@ export function setupWebDAVServer(app: express.Application) {
         next();
     });
     
-    // WebDAV method handlers
-    webdavRouter.options('*', handleOptions);
-    webdavRouter.propfind('*', handlePropfind);
-    webdavRouter.get('*', handleGet);
-    webdavRouter.head('*', handleHead);
-    webdavRouter.put('*', handlePut);
-    webdavRouter.delete('*', handleDelete);
-    webdavRouter.mkcol('*', handleMkcol);
-    webdavRouter.move('*', handleMove);
-    webdavRouter.copy('*', handleCopy);
-    webdavRouter.patch('*', handlePatch);
+    // WebDAV method handlers (use /* to match all paths)
+    webdavRouter.options('/*', handleOptions);
+    webdavRouter.propfind('/*', handlePropfind);
+    webdavRouter.get('/*', handleGet);
+    webdavRouter.head('/*', handleHead);
+    webdavRouter.put('/*', handlePut);
+    webdavRouter.delete('/*', handleDelete);
+    webdavRouter.mkcol('/*', handleMkcol);
+    webdavRouter.move('/*', handleMove);
+    webdavRouter.copy('/*', handleCopy);
+    webdavRouter.patch('/*', handlePatch);
     
     // Mount the WebDAV router
     app.use('/dav', webdavRouter);
