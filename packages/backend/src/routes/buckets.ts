@@ -6,8 +6,11 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { $Enums } from '@prisma/client';
 import StaticVars from '../common/static';
+import express from 'express';
 
 const router = Router();
+
+router.use(express.json({ limit: '50mb' }));
 
 // Validation schemas
 const createBucketSchema = Joi.object({

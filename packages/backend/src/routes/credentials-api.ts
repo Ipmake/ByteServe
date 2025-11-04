@@ -6,6 +6,8 @@ import crypto from 'crypto';
 
 const router = express.Router();
 
+router.use(express.json({ limit: '50mb' }));
+
 router.get('/', AuthLoader, async (req, res) => {
     try {
         if (!req.user) return res.status(401).json({ error: 'Unauthorized' });

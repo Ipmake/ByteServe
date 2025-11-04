@@ -4,6 +4,8 @@ import { prisma, redis } from '../fork';
 
 const router = express.Router();    
 
+router.use(express.json({ limit: '50mb' }));
+
 router.get('/me', AuthLoader, async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
     const { user, token } = req.user;

@@ -4,6 +4,8 @@ import { prisma } from '../fork';
 
 const router = express.Router();
 
+router.use(express.json({ limit: '50mb' }));
+
 router.get('/stats', async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization;

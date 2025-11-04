@@ -1,8 +1,10 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { prisma, redis } from '../fork';
 import { requireAdmin } from './users';
 
 const router = Router();
+
+router.use(express.json({ limit: '50mb' }));
 
 // GET /api/schedule-tasks - List all schedule tasks (admin only)
 router.get('/', requireAdmin, async (req, res) => {

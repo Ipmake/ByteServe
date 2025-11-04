@@ -7,8 +7,11 @@ import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
 import mime from 'mime-types';
+import express from 'express';
 
 const router = Router();
+
+router.use(express.json({ limit: '50mb' }));
 
 // Configure multer for file uploads (use temp directory, we'll move the file after)
 const storage = multer.diskStorage({
