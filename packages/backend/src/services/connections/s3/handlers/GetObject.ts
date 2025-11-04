@@ -6,10 +6,11 @@ import { updateStatsInRedis } from '../../../../common/stats';
 import fs from 'fs/promises';
 
 export default function S3Handlers_GetObject(router: express.Router) {
-    router.get('/:bucket/*', async (req, res) => {
+    router.get('/:bucket/*objectPath', async (req, res) => {
         try {
             const { bucket } = req.params;
-            const objectPath = (req.params as any)[0] || '';
+            const objectPathParam = (req.params as any).objectPath || [];
+            const objectPath = Array.isArray(objectPathParam) ? objectPathParam.join('/') : objectPathParam;
 
             // Get bucket
             const bucketObj = await prisma.bucket.findFirst({

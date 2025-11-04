@@ -40,10 +40,11 @@ interface UploadSession {
 }
 
 export default function S3Handlers_PostObject(router: express.Router) {
-    router.post('/:bucket/*', async (req, res) => {
+    router.post('/:bucket/*objectPath', async (req, res) => {
         try {
             const { bucket } = req.params;
-            const objectPath = (req.params as any)[0] || '';
+            const objectPathParam = (req.params as any).objectPath || [];
+            const objectPath = Array.isArray(objectPathParam) ? objectPathParam.join('/') : objectPathParam;
             const { uploads, uploadId } = req.query;
 
             console.log(`[S3] Received S3 POST request for bucket: ${bucket}, objectPath: ${objectPath}, uploads: ${uploads}, uploadId: ${uploadId}`);
@@ -228,7 +229,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
         }
     });
 
-    router.put('/:bucket/*', async (req, res) => {
+    router.put('/:bucket/*objectPath', async (req, res) => {
         try {
             const { partNumber, uploadId } = req.query;
 
@@ -290,7 +291,9 @@ export default function S3Handlers_PostObject(router: express.Router) {
             if (!partNumber || !uploadId) {
                 const copySrc = req.headers['x-amz-copy-source'];
 
-                const pathSegments: string[] = (req.params as any)[0].split('/').filter((p: string) => p);
+                const objectPathParam = (req.params as any).objectPath || [];
+                const objectPathStr = Array.isArray(objectPathParam) ? objectPathParam.join('/') : objectPathParam;
+                const pathSegments: string[] = objectPathStr.split('/').filter((p: string) => p);
                 const filename = pathSegments[pathSegments.length - 1];
                 const parentPathSegments = pathSegments.slice(0, -1);
 
@@ -303,7 +306,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 }
 
                 // Create a folder
-                if ((req.params as any)[0].endsWith('/')) {
+                if (objectPathStr.endsWith('/')) {
                     await prisma.object.create({
                         data: {
                             bucketId: bucketObj.id,

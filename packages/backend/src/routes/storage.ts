@@ -26,11 +26,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // GET /api/storage/:bucketName/* - Public file access
-router.get('/:bucketName/*', async (req: Request, res: Response) => {
+router.get('/:bucketName/*filePath', async (req: Request, res: Response) => {
   const { bucketName } = req.params;
-  const filePath = req.params[0] || ''; // Everything after bucketName
-  const pathSegments = filePath.split('/').filter(s => s.length > 0);
-  let readStream: ReturnType<typeof createReadStream> | undefined;
+  const filePath = (req.params as any).filePath || [];
+  const pathSegments = Array.isArray(filePath) ? filePath : [];
 
   try {
     // Get bucket
@@ -233,11 +232,11 @@ router.get('/:bucketName/*', async (req: Request, res: Response) => {
 });
 
 // POST /api/storage/:bucketName/* - Public file upload (for public-write buckets)
-router.post('/:bucketName/*', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/:bucketName/*folderPath', upload.single('file'), async (req: Request, res: Response) => {
   try {
     const { bucketName } = req.params;
-    const folderPath = req.params[0] || '';
-    const pathSegments = folderPath.split('/').filter(s => s.length > 0);
+    const folderPath = (req.params as any).folderPath || [];
+    const pathSegments = Array.isArray(folderPath) ? folderPath : [];
     const file = req.file;
 
     if (!file) {

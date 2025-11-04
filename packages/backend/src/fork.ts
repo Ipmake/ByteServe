@@ -10,7 +10,7 @@ import { createClient as createRedisClient } from "redis";
 import postgres from 'postgres';
 import path from 'path';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 // Create Prisma client with the adapter
 const prisma = new PrismaClient({});
@@ -39,7 +39,7 @@ const PORT = process.env.PORT || 3001;
 app.disable('x-powered-by');
 app.disable('etag');
 
-app.use('*', (req, res, next) => {
+app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK');
@@ -54,21 +54,22 @@ app.use('*', (req, res, next) => {
 
 app.use('/.well-known/acme-challenge', express.static(path.join(process.cwd(), 'data', 'ssl', '.well-known', 'acme-challenge')));
 
-// app.use('/dav/*', bodyParser.raw({
+// app.use('/dav/*path', bodyParser.raw({
 //   type: (req) => {
 //     return true;
 //   },
 //   limit: '500mb'
 // }));
-app.use('/s3/*', bodyParser.raw({
+app.use('/s3/*path', bodyParser.raw({
   type: (req) => {
     return true;
   },
   limit: '500mb'
 }));
 
-app.use("/s/*", (req, res, next) => {
-  const url = (req.params as any)[0];
+app.use('/s/*url', (req, res, next) => {
+  const urlParam = (req.params as any).url || [];
+  const url = Array.isArray(urlParam) ? urlParam.join('/') : urlParam;
   // Do something with the param
   return res.redirect(`/api/storage/${url}`);
 });
