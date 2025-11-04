@@ -42,6 +42,19 @@ if (cluster.isPrimary) {
 
         await prisma.$connect();
 
+        // Check TCP congestion control algorithm
+        try {
+            const congestionControl = await fs.readFile('/proc/sys/net/ipv4/tcp_congestion_control', 'utf-8');
+            const algorithm = congestionControl.trim();
+            if (algorithm !== 'bbr') {
+                console.warn(`\x1b[33m[Warning] TCP congestion control is set to '${algorithm}'. For optimal performance, consider setting it to 'bbr'.\x1b[0m`);
+            } else {
+                console.log(`[Primary] TCP congestion control: ${algorithm} ✓`);
+            }
+        } catch (err) {
+            console.warn('[Warning] Could not check TCP congestion control setting');
+        }
+
         // Clean temporary files on startup...
         console.log('Cleaning temporary files...');
         const tempDir = path.join(process.cwd(), "storage", '.temp');
@@ -62,7 +75,7 @@ if (cluster.isPrimary) {
         }
 
         cluster.on('exit', (worker, code, signal) => {
-            if (isShuttingDown) return; 
+            if (isShuttingDown) return;
             console.log(`Worker ${worker.process.pid} died. Restarting...`);
             cluster.fork();
         });
