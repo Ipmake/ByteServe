@@ -4,7 +4,7 @@ import { S3SigV4Auth } from '../../../../common/SigV4Util';
 import { getObjectPath, getStorageDir, resolvePath } from '../../../../common/object-nesting';
 import { randomUUID, randomBytes } from 'crypto';
 import path from 'path';
-import mime from 'mime';
+import mime from 'mime-types';
 import fs from 'fs/promises';
 import { CheckUserQuota } from '../../../../common/file-upload';
 
@@ -124,7 +124,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
                     } : null,
                     tempFileBase: tempFile,
                     tempFileParts: [],
-                    mimeType: req.headers['content-type'] || mime.lookup(filename, 'application/octet-stream'),
+                    mimeType: req.headers['content-type'] || mime.lookup(filename) || 'application/octet-stream',
                 } satisfies UploadSession);
 
                 res.setHeader('Content-Type', 'application/xml');
@@ -373,7 +373,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
                     data: {
                         bucketId: bucketObj.id,
                         filename: filename,
-                        mimeType: req.headers['content-type'] || mime.lookup(filename, 'application/octet-stream'),
+                        mimeType: req.headers['content-type'] || mime.lookup(filename) || 'application/octet-stream',
                         size: (await fs.stat(tempFilePath)).size,
                         parentId: parentObject ? parentObject.id : null,
                     }

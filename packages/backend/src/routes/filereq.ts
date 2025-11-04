@@ -8,7 +8,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { getObjectPath, getStorageDir } from '../common/object-nesting';
 import { CheckUserQuota } from '../common/file-upload';
-import mime from 'mime';
+import mime from 'mime-types';
 
 const router = express.Router();
 

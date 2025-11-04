@@ -6,7 +6,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
-import mime from 'mime';
+import mime from 'mime-types';
 
 const router = Router();
 
