@@ -177,7 +177,7 @@ export default function AppLayout() {
         </Tooltip>
       </Toolbar>
       <Divider />
-      <List sx={{ flexGrow: 1, pt: 2 }}>
+      <List sx={{ flexGrow: 1, pt: 2, overflowY: "auto" }}>
         {filteredNavItems.map((item) => {
           if (item.children) {
             // Expandable menu item (Settings, Credentials, etc.)
