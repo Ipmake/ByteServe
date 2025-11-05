@@ -116,7 +116,7 @@ export default function ApiPage() {
     }
   };
 
-  const ApiUrl = `${window.location.host}/api/`;
+  const ApiUrl = `${window.location.protocol}//${window.location.host}/api/`;
 
   return (
     <Box sx={{ p: 3 }}>

@@ -161,7 +161,7 @@ export default function S3Page() {
     }
   };
 
-  const s3Url = `${window.location.host}/s3`;
+  const s3Url = `${window.location.protocol}//${window.location.host}/s3`;
 
   return (
     <Box sx={{ p: 3 }}>
