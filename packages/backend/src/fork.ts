@@ -54,19 +54,6 @@ app.use((req, res, next) => {
 
 app.use('/.well-known/acme-challenge', express.static(path.join(process.cwd(), 'data', 'ssl', '.well-known', 'acme-challenge')));
 
-// app.use('/dav/*path', bodyParser.raw({
-//   type: (req) => {
-//     return true;
-//   },
-//   limit: '500mb'
-// }));
-app.use('/s3/*path', bodyParser.raw({
-  type: (req) => {
-    return true;
-  },
-  limit: '500mb'
-}));
-
 app.use('/s/*url', (req, res, next) => {
   const urlParam = (req.params as any).url || [];
   const url = Array.isArray(urlParam) ? urlParam.join('/') : urlParam;

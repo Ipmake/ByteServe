@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../fork';
-import { createReadStream } from 'fs';
+import fs from 'fs';
 import * as path from 'path';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
@@ -26,12 +26,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // GET /api/storage/:bucketName/* - Public file access
-router.get('/:bucketName/{*filePath}', async (req: Request, res: Response) => {
-  const { bucketName } = req.params;
-  const filePath = (req.params as any).filePath || [];
-  const pathSegments = Array.isArray(filePath) ? filePath.filter(segment => segment !== '') : [];
-
+router.get('/:bucketName{/*filePath}', async (req: Request, res: Response) => {
   try {
+    const { bucketName } = req.params;
+    const filePath = (req.params as any).filePath || [];
+    const pathSegments = Array.isArray(filePath) ? filePath.filter(segment => segment !== '') : [];
+
     // Get bucket
     const bucket = await prisma.bucket.findFirst({
       where: { name: bucketName },
@@ -132,97 +132,75 @@ router.get('/:bucketName/{*filePath}', async (req: Request, res: Response) => {
       apiRequestsServed: 1,
     });
 
-    try {
-      await fsPromises.stat(physicalPath); // Validate file exists
+    // Optimize socket
+    // Check if this is a range request
+    const range = req.headers.range;
+    const totalSize = Number(object.size);
 
-      // Optimize socket
-      // Check if this is a range request
-      const range = req.headers.range;
-      const totalSize = Number(object.size);
+    let start = 0;
+    let end = totalSize - 1;
 
-      let start = 0;
-      let end = totalSize - 1;
+    // Handle range requests
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      start = parseInt(parts[0], 10);
+      end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
 
-      // Handle range requests
-      if (range) {
-        const parts = range.replace(/bytes=/, "").split("-");
-        start = parseInt(parts[0], 10);
-        end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
-
-        // Validate range
-        if (start >= totalSize || end >= totalSize || start > end) {
-          res.status(416).send('Requested range not satisfiable');
-          return;
-        }
-
-        res.status(206).set({
-          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': (end - start + 1),
-          'Content-Type': object.mimeType,
-          'Content-Disposition': `inline; filename="${object.filename}"`
-        });
-      } else {
-        res.status(200).set({
-          'Content-Length': totalSize,
-          'Content-Type': object.mimeType,
-          'Content-Disposition': `inline; filename="${object.filename}"`,
-          'Accept-Ranges': 'bytes',
-          'Cache-Control': 'no-cache'
-        });
+      // Validate range
+      if (start >= totalSize || end >= totalSize || start > end) {
+        res.status(416).send('Requested range not satisfiable');
+        return;
       }
 
-      // Optimize socket for high-throughput
-      if (res.socket) {
-        res.socket.setKeepAlive(true, 60000);
-        res.socket.setNoDelay(true);
-        
-        // Increase socket buffer sizes for high-throughput (16MB based on benchmark results)
-        try {
-          // @ts-ignore - these methods exist but aren't in the types
-          if (res.socket.setRecvBufferSize) res.socket.setRecvBufferSize(16 * 1024 * 1024);
-          // @ts-ignore
-          if (res.socket.setSendBufferSize) res.socket.setSendBufferSize(16 * 1024 * 1024);
-        } catch (e) {
-          // Ignore if not supported
-        }
-      }
+      res.status(206).set({
+        'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': (end - start + 1),
+        'Content-Type': object.mimeType,
+        'Content-Disposition': `inline; filename="${object.filename}"`
+      });
+    } else {
+      res.status(200).set({
+        'Content-Length': totalSize,
+        'Content-Type': object.mimeType,
+        'Content-Disposition': `inline; filename="${object.filename}"`,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-cache'
+      });
+    }
 
-      const CHUNK_SIZE = 16 * 1024 * 1024; // 16MB chunks - optimal for high-latency connections
-      const fileHandle = await fsPromises.open(physicalPath, 'r');
-      
+    // Optimize socket for high-throughput
+    if (res.socket) {
+      res.socket.setKeepAlive(true, 60000);
+      res.socket.setNoDelay(true);
+
+      // Increase socket buffer sizes for high-throughput (16MB based on benchmark results)
       try {
-        let position = start;
-        const buffer = Buffer.allocUnsafe(CHUNK_SIZE);
-        
-        while (position <= end) {
-          const bytesToRead = Math.min(CHUNK_SIZE, end - position + 1);
-          const { bytesRead } = await fileHandle.read(buffer, 0, bytesToRead, position);
-          
-          if (bytesRead === 0) break;
-          
-          const chunk = buffer.subarray(0, bytesRead);
-          const canContinue = res.write(chunk);
-          position += bytesRead;
-          
-          // Handle backpressure - wait for drain if write buffer is full
-          if (!canContinue) {
-            await new Promise<void>((resolve) => res.once('drain', resolve));
-          }
-        }
-        
-        res.end();
-      } finally {
-        await fileHandle.close();
+        // @ts-ignore - these methods exist but aren't in the types
+        if (res.socket.setRecvBufferSize) res.socket.setRecvBufferSize(16 * 1024 * 1024);
+        // @ts-ignore
+        if (res.socket.setSendBufferSize) res.socket.setSendBufferSize(16 * 1024 * 1024);
+      } catch (e) {
+        // Ignore if not supported
       }
-    } catch (error) {
-      console.error('Error handling public file access:', error);
+    }
+
+    const CHUNK_SIZE = 16 * 1024 * 1024; // 16MB chunks - optimal for high-latency connections
+
+    const stream = fs.createReadStream(physicalPath, { start, end, highWaterMark: CHUNK_SIZE });
+
+    stream.pipe(res);
+
+    stream.on('end', () => { });
+    stream.on('error', (error) => {
+      console.error('Error streaming file:', error);
       if (!res.headersSent) {
         res.status(500).json({ error: 'Internal server error' });
       } else {
         res.destroy();
       }
-    }
+    });
+
   } catch (error) {
     console.error('Error handling public file access:', error);
     if (!res.headersSent) {
@@ -232,7 +210,7 @@ router.get('/:bucketName/{*filePath}', async (req: Request, res: Response) => {
 });
 
 // POST /api/storage/:bucketName/* - Public file upload (for public-write buckets)
-router.post('/:bucketName/{*folderPath}', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/:bucketName{/*folderPath}', upload.single('file'), async (req: Request, res: Response) => {
   try {
     const { bucketName } = req.params;
     const folderPath = (req.params as any).folderPath || [];

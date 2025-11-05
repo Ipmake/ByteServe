@@ -40,7 +40,7 @@ interface UploadSession {
 }
 
 export default function S3Handlers_PostObject(router: express.Router) {
-    router.post('/:bucket/{*objectPath}', async (req, res) => {
+    router.post('/:bucket{/*objectPath}', async (req, res) => {
         try {
             const { bucket } = req.params;
             const objectPathParam = (req.params as any).objectPath || [];
@@ -229,7 +229,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
         }
     });
 
-    router.put('/:bucket/{*objectPath}', async (req, res) => {
+    router.put('/:bucket{/*objectPath}', async (req, res) => {
         try {
             const { partNumber, uploadId } = req.query;
 
@@ -361,7 +361,15 @@ export default function S3Handlers_PostObject(router: express.Router) {
 
                     await fs.copyFile(srcObjectPathOnDisk, tempFilePath);
                 } else {
-                    await fs.writeFile(tempFilePath, req.body);
+                    const file = await fs.open(tempFilePath, 'w');
+                    const writeStream = file.createWriteStream({ highWaterMark: 1024 * 1024 });// 1MB chunk size
+ 
+                    req.pipe(writeStream);
+                    
+                    await new Promise<void>((resolve, reject) => {
+                        writeStream.on('finish', resolve);
+                        writeStream.on('error', reject);
+                    });
                 }
 
                 const existingObject = await prisma.object.findFirst({
@@ -420,8 +428,12 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 const file = await fs.open(tempFilePath, 'w');
                 const writeStream = file.createWriteStream({ highWaterMark: 1024 * 1024 });
 
-                writeStream.write(req.body);
-                writeStream.end();
+                req.pipe(writeStream);
+                
+                await new Promise<void>((resolve, reject) => {
+                    writeStream.on('finish', resolve);
+                    writeStream.on('error', reject);
+                });
 
                 await redis.json.arrAppend(`s3:multipartupload:${uploadId as string}`, '.tempFileParts', {
                     partNum,
