@@ -76,7 +76,7 @@ if (cluster.isPrimary) {
 
         cluster.on('exit', (worker, code, signal) => {
             if (isShuttingDown) return;
-            console.log(`Worker ${worker.process.pid} died. Restarting...`);
+            console.log(`Thread ${worker.process.pid} died. Restarting...`);
             cluster.fork();
         });
 
@@ -100,8 +100,8 @@ if (cluster.isPrimary) {
         });
     })();
 } else {
-    // WORKERS: Only handle HTTP requests, NO scheduled tasks
+    // Threads: Only handle HTTP requests, NO scheduled tasks
     import('./fork.js').then(() => {
-        console.log(`Worker ${process.pid} started`);
+        console.log(`Thread ${process.pid} started`);
     });
 }

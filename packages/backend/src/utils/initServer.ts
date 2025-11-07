@@ -14,11 +14,18 @@ export function HashPW(password: string) {
 export async function Init() {
     if (!redis || !prisma) throw new Error("Redis or Prisma not initialized");
 
-    redis.flushAll().then(() => {
+    await redis.flushAll().then(() => {
         console.log('Flushed all keys in Redis on startup');
     }).catch((err) => {
         console.error('Failed to flush Redis keys on startup:', err);
     });
+
+    // Disable persistence for Redis
+    await redis.configSet('save', '')
+    await redis.configSet('appendonly', 'no')
+
+    await redis.configSet('maxmemory', process.env.REDIS_MAX_MEMORY || '256mb');
+    await redis.configSet('maxmemory-policy', 'volatile-lru');
 
     try {
         await prisma.$executeRaw`CREATE PUBLICATION alltables FOR ALL TABLES`;

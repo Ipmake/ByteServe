@@ -7,6 +7,10 @@ const StaticVars = {
         { key: 'cache_path_caching_ttl_seconds', value: '300', type: $Enums.ConfigType.NUMBER },
         { key: 's3_clear_empty_parents', value: 'false', type: $Enums.ConfigType.BOOLEAN },
         { key: 'files_send_folder_index', value: 'false', type: $Enums.ConfigType.BOOLEAN },
+        { key: 'files_image_transform_enable', value: 'false', type: $Enums.ConfigType.BOOLEAN },
+        { key: 'files_image_transform_cache_enable', value: 'false', type: $Enums.ConfigType.BOOLEAN },
+        { key: 'files_image_transform_cache_ttl_seconds', value: '300', type: $Enums.ConfigType.NUMBER },
+        { key: 'files_image_transform_cache_max_size', value: '10', type: $Enums.ConfigType.NUMBER },
     ],
     System_Config_Default: [
         {

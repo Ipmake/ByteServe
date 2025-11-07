@@ -44,7 +44,28 @@ router.get('/:bucketName{/*filePath}', async (req: Request, res: Response) => {
 
     // Check if bucket is public
     if (bucket.access === 'private') {
-      return res.status(403).json({ error: 'This bucket is private' });
+      const token = (req.query.token || (req.headers['authorization'] || "Bearer ").split(" ")[1]) as string | undefined;
+
+      if (!token) return res.status(401).send('Unauthorized');
+
+      const credentialsInDb = await prisma.authTokens.findUnique({
+        where: {
+          token: token,
+          isApi: true,
+          user: {
+            Bucket: {
+              some: { id: bucket.id }
+            }
+          }
+        },
+        include: {
+          user: true
+        }
+      })
+
+      if (!credentialsInDb) {
+        return res.status(401).send('Unauthorized');
+      }
     }
 
     // If no path, list bucket root
@@ -126,7 +147,7 @@ router.get('/:bucketName{/*filePath}', async (req: Request, res: Response) => {
     const physicalPath = getObjectPath(bucketName, object.id);
 
     // Update stats in Redis
-    await updateStatsInRedis(bucket.id, {
+    updateStatsInRedis(bucket.id, {
       requestsCount: 1,
       bytesServed: Number(object.size),
       apiRequestsServed: 1,
@@ -191,7 +212,9 @@ router.get('/:bucketName{/*filePath}', async (req: Request, res: Response) => {
 
     stream.pipe(res);
 
-    stream.on('end', () => { });
+    stream.on('end', () => {
+      stream.close();
+    });
     stream.on('error', (error) => {
       console.error('Error streaming file:', error);
       if (!res.headersSent) {

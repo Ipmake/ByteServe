@@ -7,7 +7,7 @@ import fsPromises from 'fs/promises';
 import fs from 'fs';
 
 export default function S3Handlers_GetObject(router: express.Router) {
-    router.get('/:bucket{/*objectPath}', async (req, res) => {
+    router.get('/:bucket{/*objectPath}', async (req: express.Request, res) => {
         try {
             const { bucket } = req.params;
             const objectPathParam = (req.params as any).objectPath || [];
