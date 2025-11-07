@@ -134,7 +134,7 @@ router.get('/:bucket{/*objectPath}', async (req: express.Request, res) => {
             highWaterMark: 4 * 1024 * 1024 // 4MB chunk size
         });
 
-        const redisBuffer: Buffer[] | null = (cacheEnabled && object.size <= cacheMaxSize * 1024 * 1024) ? [] : null;
+        const redisBuffer: Buffer[] | null = (cacheEnabled && object.size <= cacheMaxSize) ? [] : null;
 
         readStream
             .pipe(outputPipeline)
@@ -167,7 +167,7 @@ router.get('/:bucket{/*objectPath}', async (req: express.Request, res) => {
         if (cacheEnabled && redisBuffer) {
             const buffer = Buffer.concat(redisBuffer);
 
-            if(buffer.length >= cacheMaxSize * 1024 * 1024) return;
+            if(buffer.length >= cacheMaxSize) return;
             const cacheId = crypto.createHash('md5')
                 .update(`${object.id}:w${width || 'auto'}:h${height || 'auto'}:f${format || 'orig'}:q${quality}`)
                 .digest('hex');
