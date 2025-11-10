@@ -528,8 +528,8 @@ export class S3SigV4Auth {
     // Signed headers (semicolon-separated list)
     const signedHeadersString = signedHeaders.join(';');
 
-    // Payload hash - check for x-amz-content-sha256 header first
-    const payloadHash = this.hashPayload(body, headers);
+    // Payload hash
+    const payloadHash = this.hashPayload(body);
 
     // Combine into canonical request
     return [

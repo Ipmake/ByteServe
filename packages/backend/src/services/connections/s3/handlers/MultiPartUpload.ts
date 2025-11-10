@@ -9,6 +9,7 @@ import fs from 'fs/promises';
 import { CheckUserQuota } from '../../../../common/file-upload';
 import { XMLParser } from 'fast-xml-parser';
 import { escapeXml } from '../utils/xmlEscape';
+import bodyParser from 'body-parser';
 
 interface UploadSession {
     bucket: {
@@ -160,7 +161,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
                         const parts = Array.isArray(parsedXml.CompleteMultipartUpload.Part)
                             ? parsedXml.CompleteMultipartUpload.Part
                             : [parsedXml.CompleteMultipartUpload.Part];
-                        
+
                         requestedParts = parts.map((p: any) => ({
                             PartNumber: typeof p.PartNumber === 'number' ? p.PartNumber : parseInt(p.PartNumber, 10),
                             ETag: typeof p.ETag === 'string' ? p.ETag.replace(/"/g, '') : p.ETag
@@ -268,7 +269,10 @@ export default function S3Handlers_PostObject(router: express.Router) {
         }
     });
 
-    router.put('/:bucket{/*objectPath}', async (req: express.Request, res) => {
+    router.put('/:bucket{/*objectPath}', bodyParser.raw({
+        type: (req) => { return true; },
+        limit: '40mb'
+    }), async (req: express.Request, res) => {
         try {
             const { partNumber, uploadId } = req.query;
 
@@ -357,11 +361,11 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 let parentObject = null;
                 if (parentPathSegments.length > 0) {
                     parentObject = await resolvePath(bucketObj.name, parentPathSegments);
-                    
+
                     // If parent doesn't exist, create the folder hierarchy
                     if (!parentObject) {
                         let currentParentId: string | null = null;
-                        
+
                         for (const segment of parentPathSegments) {
                             // Check if this folder already exists at this level
                             let folder: any = await prisma.object.findFirst({
@@ -456,9 +460,9 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 } else {
                     const file = await fs.open(tempFilePath, 'w');
                     const writeStream = file.createWriteStream({ highWaterMark: 1024 * 1024 });// 1MB chunk size
- 
-                    req.pipe(writeStream);
-                    
+
+                    writeStream.write(req.body);
+
                     await new Promise<void>((resolve, reject) => {
                         writeStream.on('finish', resolve);
                         writeStream.on('error', reject);
@@ -521,8 +525,8 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 const file = await fs.open(tempFilePath, 'w');
                 const writeStream = file.createWriteStream({ highWaterMark: 1024 * 1024 });
 
-                req.pipe(writeStream);
-                
+                writeStream.write(req.body);
+
                 await new Promise<void>((resolve, reject) => {
                     writeStream.on('finish', resolve);
                     writeStream.on('error', reject);
