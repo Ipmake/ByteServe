@@ -7,6 +7,8 @@ import path from 'path';
 import mime from 'mime-types';
 import fs from 'fs/promises';
 import { CheckUserQuota } from '../../../../common/file-upload';
+import { XMLParser } from 'fast-xml-parser';
+import { escapeXml } from '../utils/xmlEscape';
 
 interface UploadSession {
     bucket: {
@@ -131,9 +133,9 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 res.setHeader('Content-Type', 'application/xml');
                 return res.status(200).send(`
                 <InitiateMultipartUploadResult>
-                    <Bucket>${bucketObj.name}</Bucket>
-                    <Key>${objectPath}</Key>
-                    <UploadId>${uploadSessionID}</UploadId>
+                    <Bucket>${escapeXml(bucketObj.name)}</Bucket>
+                    <Key>${escapeXml(objectPath)}</Key>
+                    <UploadId>${escapeXml(uploadSessionID)}</UploadId>
                 </InitiateMultipartUploadResult>
             `);
             }
@@ -144,6 +146,45 @@ export default function S3Handlers_PostObject(router: express.Router) {
 
                 if (!uploadSession) return res.status(404).send('Upload session not found');
 
+                // Parse the CompleteMultipartUpload XML request
+                const xmlBody = typeof req.body === 'string' ? req.body : req.body.toString();
+                const parser = new XMLParser({
+                    ignoreAttributes: false,
+                    parseTagValue: true
+                });
+
+                let requestedParts: Array<{ PartNumber: number; ETag: string }> = [];
+                try {
+                    const parsedXml = parser.parse(xmlBody);
+                    if (parsedXml.CompleteMultipartUpload && parsedXml.CompleteMultipartUpload.Part) {
+                        const parts = Array.isArray(parsedXml.CompleteMultipartUpload.Part)
+                            ? parsedXml.CompleteMultipartUpload.Part
+                            : [parsedXml.CompleteMultipartUpload.Part];
+                        
+                        requestedParts = parts.map((p: any) => ({
+                            PartNumber: typeof p.PartNumber === 'number' ? p.PartNumber : parseInt(p.PartNumber, 10),
+                            ETag: typeof p.ETag === 'string' ? p.ETag.replace(/"/g, '') : p.ETag
+                        }));
+                    }
+                } catch (parseError) {
+                    console.error('Failed to parse CompleteMultipartUpload XML:', parseError);
+                    return res.status(400).send('Invalid XML in request body');
+                }
+
+                // Validate that all requested parts exist in the session
+                const partsToAssemble: typeof uploadSession.tempFileParts = [];
+                for (const requestedPart of requestedParts) {
+                    const sessionPart = uploadSession.tempFileParts.find(p => p.partNum === requestedPart.PartNumber);
+                    if (!sessionPart) {
+                        return res.status(400).send(`Part ${requestedPart.PartNumber} not found`);
+                    }
+                    // Optionally validate ETag matches (currently we generate random ETags, so skip validation)
+                    partsToAssemble.push(sessionPart);
+                }
+
+                // Sort parts by part number
+                partsToAssemble.sort((a, b) => a.partNum - b.partNum);
+
                 // Create final file by concatenating parts
                 const finalFilePath = path.join(getStorageDir(), ".temp", `multipart_final_${uploadId}`);
 
@@ -151,9 +192,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
 
                 const writeStream = file.createWriteStream({ highWaterMark: 1024 * 1024 });
 
-                const partsArray = uploadSession.tempFileParts.sort((a, b) => a.partNum - b.partNum);
-
-                for (const part of partsArray) {
+                for (const part of partsToAssemble) {
                     const partFile = await fs.open(part.path, 'r');
                     const partDataStream = partFile.createReadStream({ highWaterMark: 1024 * 1024 });
 
@@ -214,10 +253,10 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 res.setHeader('Content-Type', 'application/xml');
                 return res.status(200).send(`
                     <CompleteMultipartUploadResult>
-                    <Location>${req.protocol}://${req.headers.host}/s3/${uploadSession.bucket.name}/${objectPath}</Location>
-                    <Bucket>${uploadSession.bucket.name}</Bucket>
-                    <Key>${objectPath}</Key>
-                    <ETag>"${newObject.id}"</ETag>
+                    <Location>${escapeXml(`${req.protocol}://${req.headers.host}/s3/${uploadSession.bucket.name}/${objectPath}`)}</Location>
+                    <Bucket>${escapeXml(uploadSession.bucket.name)}</Bucket>
+                    <Key>${escapeXml(objectPath)}</Key>
+                    <ETag>"${escapeXml(newObject.id)}"</ETag>
                     </CompleteMultipartUploadResult>
                 `);
             }
@@ -297,12 +336,49 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 const filename = pathSegments[pathSegments.length - 1];
                 const parentPathSegments = pathSegments.slice(0, -1);
 
-                const parentObject = parentPathSegments.length > 0
-                    ? await resolvePath(bucketObj.name, parentPathSegments)
-                    : null;
+                // Auto-create parent folders if they don't exist
+                let parentObject = null;
+                if (parentPathSegments.length > 0) {
+                    parentObject = await resolvePath(bucketObj.name, parentPathSegments);
+                    
+                    // If parent doesn't exist, create the folder hierarchy
+                    if (!parentObject) {
+                        let currentParentId: string | null = null;
+                        
+                        for (const segment of parentPathSegments) {
+                            // Check if this folder already exists at this level
+                            let folder: any = await prisma.object.findFirst({
+                                where: {
+                                    bucketId: bucketObj.id,
+                                    filename: segment,
+                                    parentId: currentParentId,
+                                    mimeType: 'folder'
+                                }
+                            });
 
-                if (parentObject?.mimeType !== 'folder' && parentObject?.id) {
-                    return res.status(400).send('Parent path is not a folder');
+                            // Create folder if it doesn't exist
+                            if (!folder) {
+                                folder = await prisma.object.create({
+                                    data: {
+                                        bucketId: bucketObj.id,
+                                        filename: segment,
+                                        mimeType: 'folder',
+                                        size: 0,
+                                        parentId: currentParentId
+                                    }
+                                });
+                                console.log(`[S3] Auto-created folder: ${segment}`);
+                            }
+
+                            currentParentId = folder.id;
+                        }
+
+                        parentObject = currentParentId ? await prisma.object.findUnique({ where: { id: currentParentId } }) : null;
+                    }
+
+                    if (parentObject?.mimeType !== 'folder') {
+                        return res.status(400).send('Parent path is not a folder');
+                    }
                 }
 
                 // Create a folder
@@ -399,10 +475,10 @@ export default function S3Handlers_PostObject(router: express.Router) {
 
                 res.status(200).send(`
                     <CompleteMultipartUploadResult>
-                        <Location>${req.protocol}://${req.headers.host}/s3/${bucketObj.name}/${targetObject.id}</Location>
-                        <Bucket>${bucketObj.name}</Bucket>
-                        <Key>${targetObject.id}</Key>
-                        <ETag>"${targetObject.id}"</ETag>
+                        <Location>${escapeXml(`${req.protocol}://${req.headers.host}/s3/${bucketObj.name}/${targetObject.id}`)}</Location>
+                        <Bucket>${escapeXml(bucketObj.name)}</Bucket>
+                        <Key>${escapeXml(targetObject.id)}</Key>
+                        <ETag>"${escapeXml(targetObject.id)}"</ETag>
                     </CompleteMultipartUploadResult>
                 `);
             }

@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma, redis } from '../../../../fork';
 import { S3SigV4Auth } from '../../../../common/SigV4Util';
+import { escapeXml } from '../utils/xmlEscape';
 
 interface UploadSession {
     bucket: {
@@ -145,24 +146,24 @@ export default function S3Handlers_ListMultipartUploads(router: express.Router) 
             // Build XML response
             const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <ListMultipartUploadsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-    <Bucket>${bucketObj.name}</Bucket>
-    <KeyMarker>${keyMarker}</KeyMarker>
-    <UploadIdMarker>${uploadIdMarker}</UploadIdMarker>${nextKeyMarker ? `
-    <NextKeyMarker>${nextKeyMarker}</NextKeyMarker>` : ''}${nextUploadIdMarker ? `
-    <NextUploadIdMarker>${nextUploadIdMarker}</NextUploadIdMarker>` : ''}
-    <Delimiter>${delimiter}</Delimiter>
-    <Prefix>${prefix}</Prefix>
+    <Bucket>${escapeXml(bucketObj.name)}</Bucket>
+    <KeyMarker>${escapeXml(keyMarker)}</KeyMarker>
+    <UploadIdMarker>${escapeXml(uploadIdMarker)}</UploadIdMarker>${nextKeyMarker ? `
+    <NextKeyMarker>${escapeXml(nextKeyMarker)}</NextKeyMarker>` : ''}${nextUploadIdMarker ? `
+    <NextUploadIdMarker>${escapeXml(nextUploadIdMarker)}</NextUploadIdMarker>` : ''}
+    <Delimiter>${escapeXml(delimiter)}</Delimiter>
+    <Prefix>${escapeXml(prefix)}</Prefix>
     <MaxUploads>${maxUploads}</MaxUploads>
     <IsTruncated>${isTruncated}</IsTruncated>${uploadsToReturn.map(upload => `
     <Upload>
-        <Key>${upload.key}</Key>
-        <UploadId>${upload.uploadId}</UploadId>
+        <Key>${escapeXml(upload.key)}</Key>
+        <UploadId>${escapeXml(upload.uploadId)}</UploadId>
         <Initiator>
             <ID>unknown</ID>
             <DisplayName>unknown</DisplayName>
         </Initiator>
         <Owner>
-            <ID>${bucketObj.ownerId}</ID>
+            <ID>${escapeXml(bucketObj.ownerId)}</ID>
             <DisplayName>owner</DisplayName>
         </Owner>
         <StorageClass>STANDARD</StorageClass>

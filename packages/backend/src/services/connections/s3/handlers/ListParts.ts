@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma, redis } from '../../../../fork';
 import { S3SigV4Auth } from '../../../../common/SigV4Util';
+import { escapeXml } from '../utils/xmlEscape';
 
 interface UploadSession {
     bucket: {
@@ -108,9 +109,9 @@ export default function S3Handlers_ListParts(router: express.Router) {
             // Build XML response
             const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <ListPartsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-    <Bucket>${bucketObj.name}</Bucket>
-    <Key>${objectPath}</Key>
-    <UploadId>${uploadId}</UploadId>
+    <Bucket>${escapeXml(bucketObj.name)}</Bucket>
+    <Key>${escapeXml(objectPath)}</Key>
+    <UploadId>${escapeXml(uploadId as string)}</UploadId>
     <StorageClass>STANDARD</StorageClass>
     <PartNumberMarker>${partNumberMarker}</PartNumberMarker>${nextPartNumberMarker ? `
     <NextPartNumberMarker>${nextPartNumberMarker}</NextPartNumberMarker>` : ''}
@@ -118,7 +119,7 @@ export default function S3Handlers_ListParts(router: express.Router) {
     <IsTruncated>${isTruncated}</IsTruncated>${parts.map(part => `
     <Part>
         <PartNumber>${part.partNum}</PartNumber>
-        <ETag>"${part.etag}"</ETag>
+        <ETag>"${escapeXml(part.etag)}"</ETag>
     </Part>`).join('')}
 </ListPartsResult>`;
 

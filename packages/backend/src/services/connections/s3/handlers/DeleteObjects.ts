@@ -4,6 +4,7 @@ import { S3SigV4Auth } from '../../../../common/SigV4Util';
 import { getObjectPath, resolvePath } from '../../../../common/object-nesting';
 import fs from 'fs/promises';
 import { XMLParser } from 'fast-xml-parser';
+import { escapeXml } from '../utils/xmlEscape';
 
 interface DeleteRequest {
     Delete: {
@@ -156,12 +157,12 @@ export default function S3Handlers_DeleteObjects(router: express.Router) {
                 const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <DeleteResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">${deleted.map(d => `
     <Deleted>
-        <Key>${d.Key}</Key>
+        <Key>${escapeXml(d.Key)}</Key>
     </Deleted>`).join('')}${errors.map(e => `
     <Error>
-        <Key>${e.Key}</Key>
-        <Code>${e.Code}</Code>
-        <Message>${e.Message}</Message>
+        <Key>${escapeXml(e.Key)}</Key>
+        <Code>${escapeXml(e.Code)}</Code>
+        <Message>${escapeXml(e.Message)}</Message>
     </Error>`).join('')}
 </DeleteResult>`;
 

@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../../../../fork';
 import { S3SigV4Auth } from '../../../../common/SigV4Util';
 import { resolvePath } from '../../../../common/object-nesting';
+import { escapeXml } from '../utils/xmlEscape';
 
 export default function S3Handlers_ListObjectsV2(router: express.Router) {
     router.get('/:bucket', async (req, res) => {
@@ -70,68 +71,82 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
 
             const decodedPrefix = decodeURIComponent(safePrefixStr);
 
-            const pathSegments = decodedPrefix.split('/').filter(p => p);
+            // S3 prefix semantics: list all objects whose keys start with prefix
+            // We need to recursively get all objects and filter by prefix
+            async function getAllObjectsWithPrefix(parentId: string | null, currentPath: string): Promise<Array<{
+                fullKey: string;
+                obj: any;
+            }>> {
+                const children = await prisma.object.findMany({
+                    where: {
+                        bucketId: bucketObj!.id,
+                        parentId: parentId
+                    },
+                    orderBy: {
+                        filename: 'asc'
+                    }
+                });
 
-            const object = pathSegments.length > 0 
-                ? await resolvePath(bucketObj.name, pathSegments)
-                : null;
+                const results: Array<{ fullKey: string; obj: any }> = [];
 
-            // Prepare query conditions
-            const whereConditions: any = {
-                bucketId: bucketObj.id,
-                parentId: object ? object.id : null
-            };
+                for (const child of children) {
+                    const childKey = currentPath ? `${currentPath}/${child.filename}` : child.filename;
+                    
+                    // Check if this key starts with the prefix
+                    if (childKey.startsWith(decodedPrefix)) {
+                        results.push({ fullKey: childKey, obj: child });
+                    }
 
-            // Add continuation token support
-            if (continuationToken) {
-                whereConditions.filename = {
-                    gt: continuationToken
-                };
-            }
-
-            // Add startAfter support
-            if (startAfter) {
-                whereConditions.filename = {
-                    ...whereConditions.filename,
-                    gt: startAfter
-                };
-            }
-
-            const objects = await prisma.object.findMany({
-                where: whereConditions,
-                take: maxKeys + 1, // Fetch one extra to determine if truncated
-                orderBy: {
-                    filename: 'asc'
+                    // Recursively check children of folders
+                    if (child.mimeType === 'folder') {
+                        const childResults = await getAllObjectsWithPrefix(child.id, childKey);
+                        results.push(...childResults);
+                    }
                 }
-            });
 
-            const isTruncated = objects.length > maxKeys;
-            const objectsToReturn = isTruncated ? objects.slice(0, maxKeys) : objects;
-            const nextContinuationToken = isTruncated ? objectsToReturn[objectsToReturn.length - 1].filename : undefined;
+                return results;
+            }
+
+            // Get all objects that match the prefix
+            let allMatchingObjects = await getAllObjectsWithPrefix(null, '');
+
+            // Apply startAfter and continuationToken filtering
+            if (startAfter) {
+                allMatchingObjects = allMatchingObjects.filter(item => item.fullKey > startAfter);
+            }
+            if (continuationToken) {
+                allMatchingObjects = allMatchingObjects.filter(item => item.fullKey > continuationToken);
+            }
+
+            // Sort by key
+            allMatchingObjects.sort((a, b) => a.fullKey.localeCompare(b.fullKey));
+
+            // Paginate
+            const isTruncated = allMatchingObjects.length > maxKeys;
+            const objectsToReturn = allMatchingObjects.slice(0, maxKeys);
+            const nextContinuationToken = isTruncated ? objectsToReturn[objectsToReturn.length - 1].fullKey : undefined;
 
             // Group objects by common prefixes if delimiter is specified
             const contents: any[] = [];
             const commonPrefixes: Set<string> = new Set();
 
-            for (const obj of objectsToReturn) {
-                const fullKey = pathSegments.length > 0 
-                    ? `${pathSegments.join('/')}/${obj.filename}`
-                    : obj.filename;
-
-                if (delimiterStr && obj.mimeType !== 'folder') {
-                    // Check if object contains delimiter after prefix
-                    const keyAfterPrefix = fullKey.substring(safePrefixStr.length);
+            for (const { fullKey, obj } of objectsToReturn) {
+                if (delimiterStr) {
+                    // Find the first occurrence of delimiter after the prefix
+                    const keyAfterPrefix = fullKey.substring(decodedPrefix.length);
                     const delimiterIndex = keyAfterPrefix.indexOf(delimiterStr);
                     
-                    if (delimiterIndex > 0) {
-                        // This is a common prefix
-                        const commonPrefix = safePrefixStr + keyAfterPrefix.substring(0, delimiterIndex + 1);
+                    if (delimiterIndex >= 0) {
+                        // This should be grouped as a common prefix
+                        const commonPrefix = decodedPrefix + keyAfterPrefix.substring(0, delimiterIndex + 1);
                         commonPrefixes.add(commonPrefix);
                         continue;
                     }
                 }
 
+                // Add as regular content (not a common prefix)
                 if (obj.mimeType === 'folder') {
+                    // Folders are represented as common prefixes with trailing slash
                     commonPrefixes.add(fullKey.endsWith('/') ? fullKey : `${fullKey}/`);
                 } else {
                     contents.push({
@@ -145,22 +160,22 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
 
             const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-    <Name>${bucketObj.name}</Name>
-    <Prefix>${safePrefixStr}</Prefix>
+    <Name>${escapeXml(bucketObj.name)}</Name>
+    <Prefix>${escapeXml(safePrefixStr)}</Prefix>
     <KeyCount>${contents.length + commonPrefixes.size}</KeyCount>
     <MaxKeys>${maxKeys}</MaxKeys>
-    <Delimiter>${delimiterStr}</Delimiter>
+    <Delimiter>${escapeXml(delimiterStr)}</Delimiter>
     <IsTruncated>${isTruncated}</IsTruncated>${continuationToken ? `
-    <ContinuationToken>${continuationToken}</ContinuationToken>` : ''}${nextContinuationToken ? `
-    <NextContinuationToken>${nextContinuationToken}</NextContinuationToken>` : ''}${contents.map(c => `
+    <ContinuationToken>${escapeXml(continuationToken)}</ContinuationToken>` : ''}${nextContinuationToken ? `
+    <NextContinuationToken>${escapeXml(nextContinuationToken)}</NextContinuationToken>` : ''}${contents.map(c => `
     <Contents>
-        <Key>${c.key}</Key>
+        <Key>${escapeXml(c.key)}</Key>
         <LastModified>${c.lastModified}</LastModified>
-        <ETag>${c.etag}</ETag>
+        <ETag>${escapeXml(c.etag)}</ETag>
         <Size>${c.size}</Size>
     </Contents>`).join('')}${Array.from(commonPrefixes).map(prefix => `
     <CommonPrefixes>
-        <Prefix>${prefix}</Prefix>
+        <Prefix>${escapeXml(prefix)}</Prefix>
     </CommonPrefixes>`).join('')}
 </ListBucketResult>`;
 
