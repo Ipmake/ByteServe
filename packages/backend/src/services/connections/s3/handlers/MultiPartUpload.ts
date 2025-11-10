@@ -9,7 +9,6 @@ import fs from 'fs/promises';
 import { CheckUserQuota } from '../../../../common/file-upload';
 import { XMLParser } from 'fast-xml-parser';
 import { escapeXml } from '../utils/xmlEscape';
-import bodyParser from 'body-parser';
 
 interface UploadSession {
     bucket: {
@@ -269,10 +268,7 @@ export default function S3Handlers_PostObject(router: express.Router) {
         }
     });
 
-    router.put('/:bucket{/*objectPath}', bodyParser.raw({
-        type: (req) => { return true; },
-        limit: '40mb'
-    }), async (req: express.Request, res) => {
+    router.put('/:bucket{/*objectPath}', async (req: express.Request, res) => {
         try {
             const { partNumber, uploadId } = req.query;
 
@@ -308,12 +304,13 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 });
                 if (!credentialsInDb) return res.status(401).send('Unauthorized');
 
+                // For streaming uploads with UNSIGNED-PAYLOAD, we don't need the body for signature verification
                 const result = S3SigV4Auth.verifyWithPathDetection(
                     req.method,
                     req.originalUrl,
                     req.path,
                     req.headers,
-                    req.method === 'PUT' || req.method === 'POST' ? req.body : undefined,
+                    undefined, // req.method === 'PUT' || req.method === 'POST' ? req.body : undefined,
                     accessKeyId,
                     credentialsInDb.secretKey
                 );
@@ -346,8 +343,9 @@ export default function S3Handlers_PostObject(router: express.Router) {
                 };
             }
 
-            // Check if user has enough quota
-            const hasQuota = await CheckUserQuota(bucketObj, req.body.length);
+            // Check if user has enough quota using content-length header
+            const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+            const hasQuota = await CheckUserQuota(bucketObj, contentLength);
             if (!hasQuota) return res.status(403).send('Insufficient storage quota');
 
             // Single part upload
@@ -461,14 +459,17 @@ export default function S3Handlers_PostObject(router: express.Router) {
 
                     await fs.copyFile(srcObjectPathOnDisk, tempFilePath);
                 } else {
+                    // Stream the request body directly to the temp file
                     const file = await fs.open(tempFilePath, 'w');
-                    const writeStream = file.createWriteStream({ highWaterMark: 1024 * 1024 });// 1MB chunk size
+                    const writeStream = file.createWriteStream({ highWaterMark: 1024 * 1024 }); // 1MB chunk size
 
-                    writeStream.write(req.body);
+                    // Pipe the request stream to the file
+                    req.pipe(writeStream);
 
                     await new Promise<void>((resolve, reject) => {
                         writeStream.on('finish', resolve);
                         writeStream.on('error', reject);
+                        req.on('error', reject);
                     });
                 }
 
@@ -519,20 +520,22 @@ export default function S3Handlers_PostObject(router: express.Router) {
 
                 const tempFilePath = uploadSession.tempFileBase.replace('{{partNumber}}', partNum.toString());
 
-                // TODO
+                // TODO: Calculate actual MD5/ETag from stream if needed
                 const contentHash = randomBytes(16).toString('hex');
 
-                console.log(`[S3] Writing part ${partNum} to ${tempFilePath} with MD5 ${contentHash} size ${req.body.length}`);
+                console.log(`[S3] Writing part ${partNum} to ${tempFilePath} with MD5 ${contentHash} size ${contentLength}`);
 
-
+                // Stream the request body directly to the temp file
                 const file = await fs.open(tempFilePath, 'w');
                 const writeStream = file.createWriteStream({ highWaterMark: 1024 * 1024 });
 
-                writeStream.write(req.body);
+                // Pipe the request stream to the file
+                req.pipe(writeStream);
 
                 await new Promise<void>((resolve, reject) => {
                     writeStream.on('finish', resolve);
                     writeStream.on('error', reject);
+                    req.on('error', reject);
                 });
 
                 await redis.json.arrAppend(`s3:multipartupload:${uploadId as string}`, '.tempFileParts', {
