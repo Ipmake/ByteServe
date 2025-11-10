@@ -9,19 +9,27 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
         try {
             const { bucket } = req.params;
 
+            // Check which API version to use
             const listType = req.query["list-type"];
-            if (listType !== '2') {
-                return res.status(400).send('Only ListObjectsV2 is supported');
+            const isV2 = listType === '2';
+            const isV1 = !listType || listType === '1';
+            
+            // Accept both V1 and V2
+            if (!isV1 && !isV2) {
+                return res.status(400).send('Invalid list-type parameter');
             }
 
             const { prefix, delimiter } = req.query;
             const prefixStr = Array.isArray(prefix) ? prefix[0] : (typeof prefix === 'string' ? prefix : '');
             const safePrefixStr = typeof prefixStr === 'string' ? prefixStr : '';
             const delimiterStr = typeof delimiter === 'string' ? delimiter : (Array.isArray(delimiter) ? String(delimiter[0]) : '');
+            
+            // V2 uses start-after and continuation-token, V1 uses marker
             const startAfter = req.query["start-after"] as string | undefined;
+            const continuationToken = req.query["continuation-token"] as string | undefined;
+            const marker = req.query["marker"] as string | undefined;
 
             const maxKeys = req.query["max-keys"] ? parseInt(req.query["max-keys"] as string, 10) : 1000;
-            const continuationToken = req.query["continuation-token"] as string | undefined;
 
             // Get bucket
             const bucketObj = await prisma.bucket.findFirst({
@@ -110,12 +118,11 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
             // Get all objects that match the prefix
             let allMatchingObjects = await getAllObjectsWithPrefix(null, '');
 
-            // Apply startAfter and continuationToken filtering
-            if (startAfter) {
-                allMatchingObjects = allMatchingObjects.filter(item => item.fullKey > startAfter);
-            }
-            if (continuationToken) {
-                allMatchingObjects = allMatchingObjects.filter(item => item.fullKey > continuationToken);
+            // Apply filtering based on API version
+            // V2 uses startAfter and continuationToken, V1 uses marker
+            const filterKey = isV2 ? (startAfter || continuationToken) : marker;
+            if (filterKey) {
+                allMatchingObjects = allMatchingObjects.filter(item => item.fullKey > filterKey);
             }
 
             // Sort by key
@@ -124,7 +131,7 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
             // Paginate
             const isTruncated = allMatchingObjects.length > maxKeys;
             const objectsToReturn = allMatchingObjects.slice(0, maxKeys);
-            const nextContinuationToken = isTruncated ? objectsToReturn[objectsToReturn.length - 1].fullKey : undefined;
+            const nextMarker = isTruncated ? objectsToReturn[objectsToReturn.length - 1].fullKey : undefined;
 
             // Group objects by common prefixes if delimiter is specified
             const contents: any[] = [];
@@ -158,7 +165,12 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
                 }
             }
 
-            const xml = `<?xml version="1.0" encoding="UTF-8"?>
+            // Build XML response based on API version
+            let xml: string;
+            
+            if (isV2) {
+                // ListObjectsV2 format
+                xml = `<?xml version="1.0" encoding="UTF-8"?>
 <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
     <Name>${escapeXml(bucketObj.name)}</Name>
     <Prefix>${escapeXml(safePrefixStr)}</Prefix>
@@ -166,8 +178,8 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
     <MaxKeys>${maxKeys}</MaxKeys>
     <Delimiter>${escapeXml(delimiterStr)}</Delimiter>
     <IsTruncated>${isTruncated}</IsTruncated>${continuationToken ? `
-    <ContinuationToken>${escapeXml(continuationToken)}</ContinuationToken>` : ''}${nextContinuationToken ? `
-    <NextContinuationToken>${escapeXml(nextContinuationToken)}</NextContinuationToken>` : ''}${contents.map(c => `
+    <ContinuationToken>${escapeXml(continuationToken)}</ContinuationToken>` : ''}${nextMarker ? `
+    <NextContinuationToken>${escapeXml(nextMarker)}</NextContinuationToken>` : ''}${contents.map(c => `
     <Contents>
         <Key>${escapeXml(c.key)}</Key>
         <LastModified>${c.lastModified}</LastModified>
@@ -178,6 +190,28 @@ export default function S3Handlers_ListObjectsV2(router: express.Router) {
         <Prefix>${escapeXml(prefix)}</Prefix>
     </CommonPrefixes>`).join('')}
 </ListBucketResult>`;
+            } else {
+                // ListObjects V1 format
+                xml = `<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Name>${escapeXml(bucketObj.name)}</Name>
+    <Prefix>${escapeXml(safePrefixStr)}</Prefix>
+    <Marker>${escapeXml(marker || '')}</Marker>${nextMarker ? `
+    <NextMarker>${escapeXml(nextMarker)}</NextMarker>` : ''}
+    <MaxKeys>${maxKeys}</MaxKeys>
+    <Delimiter>${escapeXml(delimiterStr)}</Delimiter>
+    <IsTruncated>${isTruncated}</IsTruncated>${contents.map(c => `
+    <Contents>
+        <Key>${escapeXml(c.key)}</Key>
+        <LastModified>${c.lastModified}</LastModified>
+        <ETag>${escapeXml(c.etag)}</ETag>
+        <Size>${c.size}</Size>
+    </Contents>`).join('')}${Array.from(commonPrefixes).map(prefix => `
+    <CommonPrefixes>
+        <Prefix>${escapeXml(prefix)}</Prefix>
+    </CommonPrefixes>`).join('')}
+</ListBucketResult>`;
+            }
 
             res.setHeader('Content-Type', 'application/xml');
             res.status(200).send(xml);
