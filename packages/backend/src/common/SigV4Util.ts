@@ -125,8 +125,15 @@ export class S3SigV4Auth {
     // Or: GET /key/path instead of GET /bucket/key/path
     const [pathPart, query] = originalUrl.split('?');
     
-    // Strip /s3 prefix first
+    // Strip /s3 prefix first and try that path too
     const s3Path = this.extractS3Path(pathPart);
+    const s3PathWithQuery = query ? `${s3Path}?${query}` : s3Path;
+    
+    // Add the path without /s3 prefix as a variation (clients sign without the base route)
+    if (s3PathWithQuery !== originalUrl) {
+      pathsToTry.push(s3PathWithQuery);
+    }
+    
     const s3PathSegments = s3Path.split('/').filter(s => s);
     
     if (s3PathSegments.length >= 1) {
@@ -528,8 +535,8 @@ export class S3SigV4Auth {
     // Signed headers (semicolon-separated list)
     const signedHeadersString = signedHeaders.join(';');
 
-    // Payload hash
-    const payloadHash = this.hashPayload(body);
+    // Payload hash - check for x-amz-content-sha256 header first
+    const payloadHash = this.hashPayload(body, headers);
 
     // Combine into canonical request
     return [
@@ -633,7 +640,21 @@ export class S3SigV4Auth {
    * @param body - Request body (can be undefined for GET/HEAD requests)
    * @returns Hex-encoded SHA256 hash
    */
-  private static hashPayload(body: string | Buffer | undefined): string {
+  private static hashPayload(body: string | Buffer | undefined, headers?: IncomingHttpHeaders): string {
+    // Check if client provided pre-computed content hash or UNSIGNED-PAYLOAD
+    if (headers) {
+      const contentSha256 = headers['x-amz-content-sha256'] || headers['X-Amz-Content-Sha256'];
+      if (contentSha256 && typeof contentSha256 === 'string') {
+        // Special case: UNSIGNED-PAYLOAD means the client wants to skip payload verification
+        // In this case, we use the literal string 'UNSIGNED-PAYLOAD' in the canonical request
+        if (contentSha256 === 'UNSIGNED-PAYLOAD') {
+          return 'UNSIGNED-PAYLOAD';
+        }
+        // Otherwise, use the provided hash (common for large uploads to avoid re-computing)
+        return contentSha256;
+      }
+    }
+    
     if (!body || (typeof body === 'string' && body.length === 0)) {
       // Empty body
       return createHash('sha256').update('').digest('hex');
