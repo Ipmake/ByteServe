@@ -125,8 +125,15 @@ export class S3SigV4Auth {
     // Or: GET /key/path instead of GET /bucket/key/path
     const [pathPart, query] = originalUrl.split('?');
     
-    // Strip /s3 prefix first
+    // Strip /s3 prefix first and try that path too
     const s3Path = this.extractS3Path(pathPart);
+    const s3PathWithQuery = query ? `${s3Path}?${query}` : s3Path;
+    
+    // Add the path without /s3 prefix as a variation (clients sign without the base route)
+    if (s3PathWithQuery !== originalUrl) {
+      pathsToTry.push(s3PathWithQuery);
+    }
+    
     const s3PathSegments = s3Path.split('/').filter(s => s);
     
     if (s3PathSegments.length >= 1) {

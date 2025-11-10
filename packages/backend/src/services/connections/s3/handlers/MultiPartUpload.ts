@@ -330,6 +330,9 @@ export default function S3Handlers_PostObject(router: express.Router) {
                         console.error(`[S3]   ${i + 1}. Path: ${attempt.path}`);
                         console.error(`[S3]      Valid: ${attempt.isValid}`);
                         console.error(`[S3]      Calculated: ${attempt.calculatedSignature}`);
+                        if (attempt.canonicalRequest) {
+                            console.error(`[S3]      Canonical Request:\n${attempt.canonicalRequest}`);
+                        }
                         if (attempt.error) {
                             console.error(`[S3]      Error: ${attempt.error}`);
                         }
