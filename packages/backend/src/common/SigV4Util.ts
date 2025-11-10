@@ -528,8 +528,8 @@ export class S3SigV4Auth {
     // Signed headers (semicolon-separated list)
     const signedHeadersString = signedHeaders.join(';');
 
-    // Payload hash
-    const payloadHash = this.hashPayload(body);
+    // Payload hash - check for x-amz-content-sha256 header first
+    const payloadHash = this.hashPayload(body, headers);
 
     // Combine into canonical request
     return [
@@ -633,7 +633,16 @@ export class S3SigV4Auth {
    * @param body - Request body (can be undefined for GET/HEAD requests)
    * @returns Hex-encoded SHA256 hash
    */
-  private static hashPayload(body: string | Buffer | undefined): string {
+  private static hashPayload(body: string | Buffer | undefined, headers?: IncomingHttpHeaders): string {
+    // Check if client provided pre-computed content hash
+    if (headers) {
+      const contentSha256 = headers['x-amz-content-sha256'] || headers['X-Amz-Content-Sha256'];
+      if (contentSha256 && typeof contentSha256 === 'string') {
+        // Use the provided hash (common for large uploads to avoid re-computing)
+        return contentSha256;
+      }
+    }
+    
     if (!body || (typeof body === 'string' && body.length === 0)) {
       // Empty body
       return createHash('sha256').update('').digest('hex');

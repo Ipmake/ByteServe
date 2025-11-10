@@ -314,7 +314,24 @@ export default function S3Handlers_PostObject(router: express.Router) {
                     credentialsInDb.secretKey
                 );
 
-                if (!result.isValid) return res.status(403).send('Invalid signature');
+                if (!result.isValid) {
+                    console.log(req.headers)
+                    console.error('[S3] Signature verification failed for PUT request');
+                    console.error('[S3] Original URL:', req.originalUrl);
+                    console.error('[S3] Path:', req.path);
+                    console.error('[S3] Method:', req.method);
+                    console.error('[S3] Received signature:', result.receivedSignature);
+                    console.error('[S3] Path attempts:');
+                    result.pathAttempts.forEach((attempt, i) => {
+                        console.error(`[S3]   ${i + 1}. Path: ${attempt.path}`);
+                        console.error(`[S3]      Valid: ${attempt.isValid}`);
+                        console.error(`[S3]      Calculated: ${attempt.calculatedSignature}`);
+                        if (attempt.error) {
+                            console.error(`[S3]      Error: ${attempt.error}`);
+                        }
+                    });
+                    return res.status(403).send('Invalid signature');
+                }
 
                 AuthenticatedUser = {
                     id: credentialsInDb.userId,
