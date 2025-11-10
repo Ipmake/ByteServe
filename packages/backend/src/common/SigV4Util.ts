@@ -634,11 +634,16 @@ export class S3SigV4Auth {
    * @returns Hex-encoded SHA256 hash
    */
   private static hashPayload(body: string | Buffer | undefined, headers?: IncomingHttpHeaders): string {
-    // Check if client provided pre-computed content hash
+    // Check if client provided pre-computed content hash or UNSIGNED-PAYLOAD
     if (headers) {
       const contentSha256 = headers['x-amz-content-sha256'] || headers['X-Amz-Content-Sha256'];
       if (contentSha256 && typeof contentSha256 === 'string') {
-        // Use the provided hash (common for large uploads to avoid re-computing)
+        // Special case: UNSIGNED-PAYLOAD means the client wants to skip payload verification
+        // In this case, we use the literal string 'UNSIGNED-PAYLOAD' in the canonical request
+        if (contentSha256 === 'UNSIGNED-PAYLOAD') {
+          return 'UNSIGNED-PAYLOAD';
+        }
+        // Otherwise, use the provided hash (common for large uploads to avoid re-computing)
         return contentSha256;
       }
     }
