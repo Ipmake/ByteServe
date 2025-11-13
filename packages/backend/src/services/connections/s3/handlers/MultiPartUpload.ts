@@ -146,8 +146,12 @@ export default function S3Handlers_PostObject(router: express.Router) {
 
                 if (!uploadSession) return res.status(404).send('Upload session not found');
 
-                // Parse the CompleteMultipartUpload XML request
-                const xmlBody = typeof req.body === 'string' ? req.body : req.body.toString();
+                // Stream and parse the CompleteMultipartUpload XML request
+                const chunks: Buffer[] = [];
+                for await (const chunk of req) {
+                    chunks.push(Buffer.from(chunk));
+                }
+                const xmlBody = Buffer.concat(chunks).toString('utf-8');
                 const parser = new XMLParser({
                     ignoreAttributes: false,
                     parseTagValue: true
